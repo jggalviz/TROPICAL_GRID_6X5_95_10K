@@ -2544,3 +2544,369 @@ body {
   .chip { height: 32px; min-width: 32px; }
   .statusbar { font-size: 8.5px; }
 }
+
+/* ==========================================================================
+   MAQUETA · DOS COLUMNAS
+   --------------------------------------------------------------------------
+   Bloque 1 (logo) + Bloque 2 (indicadores) + Bloque 3 (saldo y controles) en
+   la columna izquierda; Bloque 4 (cuadricula 6x5) en la derecha.
+
+   Se declara al final de la hoja para ganar la cascada sobre las capas
+   anteriores (candyland y ajustes por altura) sin duplicar sus estilos: aqui
+   solo se define el REPARTO del espacio. Los ids y clases que consume el
+   cliente no cambian.
+   ========================================================================== */
+
+.machine {
+  --side-width: minmax(268px, 33%);
+  /* Alto reservado al "chrome" (barra superior, paddings y marco) cuando el
+     navegador no soporta unidades de contenedor (ver `100cqh` mas abajo). */
+  --board-chrome: clamp(140px, 17dvh, 210px);
+  /* Padding + borde del marco del tablero: se descuenta del alto util. */
+  --board-overhead: 36px;
+  --board-gutter: 0px;
+  display: grid;
+  grid-template-columns: var(--side-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "side table";
+  align-items: stretch;
+  justify-content: stretch;
+  column-gap: clamp(8px, 1.1vw, 18px);
+  row-gap: 0;
+  height: 100%;
+  min-height: 0;
+  padding: clamp(6px, 0.9vh, 12px);
+  overflow: hidden;
+}
+
+/* Columna izquierda: Bloques 1-3 repartidos arriba / centro / abajo. */
+.machine__side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: clamp(5px, 0.9vh, 12px);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Bloque 1 · Logo principal
+   -------------------------------------------------------------------------- */
+
+.machine__side .machine__hero {
+  grid-area: auto;
+  flex: 0 1 auto;
+  align-self: stretch;
+  justify-self: stretch;
+  flex-direction: column;
+  gap: 4px;
+  /* Holgura superior: la animacion desplaza el logo ~7px hacia arriba. */
+  padding: clamp(8px, 1.2vh, 16px) 0 clamp(2px, 0.6vh, 8px);
+}
+
+.machine__side .machine__hero::before {
+  width: min(460px, 96%);
+  aspect-ratio: 1.9 / 1;
+}
+
+/* El logo respira: flotacion + latido de brillo muy leve, continuo. */
+.machine__side .machine__logo {
+  width: auto;
+  height: clamp(132px, 28vh, 292px);
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0 auto;
+  transform-origin: 50% 60%;
+  animation: pana-logo-breathe 6.4s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+@keyframes pana-logo-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    filter:
+      drop-shadow(0 10px 16px rgba(62, 3, 68, 0.28))
+      drop-shadow(0 0 18px rgba(255, 255, 255, 0.22));
+  }
+  50% {
+    transform: translateY(-7px) scale(1.03);
+    filter:
+      brightness(1.06)
+      drop-shadow(0 16px 24px rgba(62, 3, 68, 0.34))
+      drop-shadow(0 0 26px rgba(255, 240, 170, 0.5));
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Bloque 2 · Indicadores de partida
+   -------------------------------------------------------------------------- */
+
+.machine__side .hud {
+  grid-area: auto;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(4px, 0.5vw, 8px);
+}
+
+.machine__side .hud__cell {
+  align-items: center;
+  text-align: center;
+  padding: clamp(4px, 0.7vh, 9px) clamp(4px, 0.5vw, 10px);
+  overflow: hidden;
+}
+
+/* Etiquetas largas (MULTIPLICADOR) nunca desbordan su celda. */
+.machine__side .hud__label,
+.machine__side .hud__value {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Los tres indicadores son obligatorios: no se oculta el multiplicador. */
+.machine__side .hud__cell:last-child { display: flex; }
+
+/* --------------------------------------------------------------------------
+   Bloque 3 · Panel de control y saldo
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls {
+  grid-area: auto;
+  flex: 0 0 auto;
+  align-self: stretch;
+  justify-self: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(5px, 0.8vh, 9px);
+  min-height: 0;
+  padding: clamp(6px, 1vh, 12px);
+}
+
+.machine__side .controls__wallet,
+.machine__side .controls__bet,
+.machine__side .controls__actions { grid-column: 1; }
+
+.machine__side .controls__bet {
+  justify-content: space-between;
+  gap: clamp(4px, 0.5vw, 7px);
+}
+
+.machine__side .controls__actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(104px, 1.28fr) minmax(0, 1fr);
+  align-items: stretch;
+  justify-content: stretch;
+  gap: clamp(4px, 0.6vw, 8px);
+  flex-wrap: nowrap;
+}
+
+.machine__side .controls .btn--feature,
+.machine__side .controls .btn--auto {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 4px;
+}
+
+.machine__side .controls .btn--spin {
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  aspect-ratio: auto;
+  flex-direction: row;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+}
+
+.machine__side .statusbar {
+  grid-area: auto;
+  flex: 0 0 auto;
+  align-self: stretch;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 10px;
+}
+
+/* En columnas estrechas la barra recorta con puntos suspensivos en vez de
+   romper en dos lineas (romper empujaria el tablero fuera del viewport). */
+.machine__side .statusbar__item {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.machine__side .statusbar__item:first-child {
+  flex: 1 1 auto;
+  text-align: start;
+}
+
+.machine__side .statusbar__item--right {
+  flex: 0 1 auto;
+  max-width: 55%;
+  text-align: end;
+}
+
+/* --------------------------------------------------------------------------
+   Bloque 4 · Cuadricula del juego (columna derecha)
+   -------------------------------------------------------------------------- */
+
+.machine__table {
+  grid-area: table;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  /* Permite medir con `cqh` el alto real disponible para el tablero. */
+  container-type: size;
+}
+
+.machine__table .board {
+  flex: 0 1 auto;
+  /* 1) Referencia al viewport (respaldo universal). */
+  width: min(100%, calc((100dvh - var(--board-chrome)) * 6 / 5));
+  /* 2) Alto real del contenedor: el tablero nunca desborda la columna. */
+  width: min(100%, calc((100cqh - var(--board-overhead)) * 6 / 5 + var(--board-overhead)));
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  align-self: center;
+  justify-self: center;
+}
+
+.machine__table .grid {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 6 / 5;
+  gap: clamp(4px, 0.5vw, 8px);
+}
+
+/* La columna de auditoria queda fuera del reparto de los 4 bloques; su
+   contenido sigue en el DOM para no romper las referencias del cliente. */
+.stage { grid-template-columns: minmax(0, 1fr); }
+.panel { display: none; }
+
+/* --------------------------------------------------------------------------
+   Adaptacion
+   -------------------------------------------------------------------------- */
+
+/* Portatiles estrechos: la columna de control cede algo de ancho al tablero. */
+@media (max-width: 1180px) {
+  .machine { --side-width: minmax(250px, 32%); }
+}
+
+/* Columna de control angosta: tipografia mas compacta para que las etiquetas
+   ("MULTIPLICADOR", "Tropical Fever") quepan en una o dos lineas sin desbordar
+   ni empujar el tablero. */
+@media (max-width: 1080px) {
+  .machine__side .hud__label {
+    font-size: 8px;
+    letter-spacing: 0.08em;
+  }
+
+  .machine__side .hud__value { font-size: clamp(12px, 1.1vw, 16px); }
+
+  .machine__side .controls .btn--feature .btn__title,
+  .machine__side .controls .btn--auto .btn__title {
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    line-height: 1.06;
+  }
+
+  .machine__side .controls .btn--feature .btn__sub,
+  .machine__side .controls .btn--auto .btn__sub {
+    font-size: 7.5px;
+    letter-spacing: 0;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* La version del motor es informativa: se oculta antes que el estado. */
+  .machine__side .statusbar__item--right { display: none; }
+
+  .machine__side .statusbar { font-size: 9.5px; }
+}
+
+/* En movil el ancho sobra; se recupera el texto completo. */
+@media (max-width: 899px) {
+  .machine__side .statusbar__item--right { display: block; }
+  .machine__side .statusbar { font-size: 10px; }
+
+  .machine__side .hud__label {
+    font-size: 8.5px;
+    letter-spacing: 0.12em;
+  }
+
+  .machine__side .hud__value { font-size: clamp(13px, 3.4vw, 17px); }
+}
+
+/* Una sola columna: Bloques 1-3 arriba y el tablero debajo con el alto restante. */
+@media (max-width: 899px) {
+  .machine {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 0.7vh, 8px);
+    padding: clamp(5px, 0.8vh, 10px);
+  }
+
+  .machine__side {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    gap: clamp(4px, 0.7vh, 8px);
+    overflow: visible;
+  }
+
+  .machine__side .machine__hero { padding: 0; }
+
+  .machine__side .machine__logo { height: clamp(64px, 10.5vh, 104px); }
+
+  .machine__table {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .machine__table .board { margin-inline: auto; }
+}
+
+/* Pantallas bajas: el logo cede su alto al tablero. */
+@media (max-height: 660px) {
+  .machine__hero { display: none; }
+}
+
+@media (max-width: 520px) {
+  .machine__side .controls {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .machine__side .controls__actions {
+    grid-template-columns: minmax(0, 1fr) minmax(88px, 1.15fr) minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .machine__side .controls .btn--spin { min-height: 50px; }
+
+  .machine__side .controls .btn--feature .btn__title { font-size: 10px; }
+  .machine__side .controls .btn--feature .btn__sub { font-size: 8.5px; }
+
+  .machine__side .hud__label { font-size: 8px; }
+  .machine__side .hud__value { font-size: 13px; }
+}
+
