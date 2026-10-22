@@ -17,6 +17,7 @@ const ROOT_DIR = path.join(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 const SYMBOLS_DIR = path.join(PUBLIC_DIR, 'src', 'assets', 'symbols');
 const FORMAT_PATH = path.join(PUBLIC_DIR, 'src', 'js', 'format.js');
+const STYLE_PATH = path.join(PUBLIC_DIR, 'src', 'css', 'style.css');
 const INDEX_PATH = path.join(PUBLIC_DIR, 'index.html');
 const LOGO_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'PANA-CRUSH-LOGO.png');
 
@@ -50,4 +51,22 @@ test('el logo oficial se sirve y esta centrado sobre el tablero', () => {
   assert.match(html, /<div class="machine__hero">/);
   assert.match(html, /src="\/src\/assets\/PANA-CRUSH-LOGO\.png"/);
   assert.match(html, /alt="PANA CRUSH"/);
+  assert.match(html, /width="240" height="240"/, 'El logo debe reservar 240x240 px como maximo');
+});
+
+test('la capa candyland mantiene el tablero protagonista y los caramelos grandes', () => {
+  const css = read(STYLE_PATH);
+
+  assert.match(
+    css,
+    /\.machine__logo\s*\{[^}]*max-width:\s*240px;[^}]*max-height:\s*180px;[^}]*\}/,
+    'El logo debe quedar acotado a 240x180 px'
+  );
+  assert.match(
+    css,
+    /\.tile__img\s*\{[^}]*width:\s*85%;[^}]*height:\s*85%;[^}]*object-fit:\s*contain;[^}]*\}/,
+    'Los caramelos deben ocupar el 85% de la casilla'
+  );
+  assert.match(css, /linear-gradient\(155deg,\s*#8be8ff/, 'El fondo debe ser candyland azul/rosa');
+  assert.doesNotMatch(css, /#0b1a13|#0f261c/i, 'No deben quedar fondos verde oscuro');
 });
