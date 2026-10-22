@@ -939,8 +939,9 @@ body.is-demo .balance__label::after { content: " · demo"; color: var(--mango); 
   --font: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 }
 
-html,
-body {
+/* Fondo decorativo heredado: solo en `html`, actua como respaldo inmediato
+   (color + degradados) mientras se descarga la ilustracion SVG. */
+html {
   background-color: #ffa8de;
   background-image:
     radial-gradient(900px 560px at 10% 4%, rgba(126, 232, 255, 0.92), transparent 64%),
@@ -952,6 +953,16 @@ body {
 }
 
 body {
+  /* Fondo ilustrado optimizado: public/src/assets/background.webp
+     (1920x1080, calidad 90, ~248 KB) fijo respecto al viewport y escalado
+     con `cover` para no deformarse ni repetirse en ningun tamano de pantalla.
+     `image-set()` sirve el WebP y deja el SVG original como respaldo para
+     navegadores sin soporte; si ninguno llega, se ven los degradados de `html`. */
+  background: url('../assets/background.webp') center center / cover no-repeat fixed;
+  background-image: image-set(
+    url('../assets/background.webp') type('image/webp'),
+    url('../assets/background.svg') type('image/svg+xml')
+  );
   position: relative;
   overflow-x: hidden;
   color: var(--ink);

@@ -140,3 +140,40 @@ test('el escalado del tablero y las casillas se adapta al alto disponible', () =
     'Los controles deben poder comprimirse dentro de la maquina'
   );
 });
+
+test('el fondo ilustrado se sirve como WebP optimizado con el SVG de respaldo', () => {
+  const css = read(STYLE_PATH);
+  const webp = path.join(PUBLIC_DIR, 'src', 'assets', 'background.webp');
+  const svg = path.join(PUBLIC_DIR, 'src', 'assets', 'background.svg');
+
+  assert.ok(fs.existsSync(webp), 'Falta public/src/assets/background.webp');
+  const size = fs.statSync(webp).size;
+  assert.ok(size > 0, 'background.webp esta vacio');
+  assert.ok(size < 400 * 1024, `background.webp pesa ${(size / 1024).toFixed(1)} KB (objetivo < 400 KB)`);
+  assert.equal(
+    fs.readFileSync(webp).subarray(0, 4).toString('ascii'),
+    'RIFF',
+    'background.webp debe ser un contenedor RIFF'
+  );
+  assert.equal(
+    fs.readFileSync(webp).subarray(8, 12).toString('ascii'),
+    'WEBP',
+    'background.webp debe ser un WebP real'
+  );
+  assert.ok(fs.existsSync(svg), 'El SVG original debe quedar como respaldo');
+  assert.ok(
+    !fs.existsSync(path.join(PUBLIC_DIR, 'src', 'fondo_candy_paisaje_v2.svg')),
+    'El fondo no debe quedar duplicado fuera de assets/'
+  );
+  assert.match(
+    css,
+    /body\s*\{[^}]*background:\s*url\('\.\.\/assets\/background\.webp'\)\s*center center \/ cover no-repeat fixed;/,
+    "El body debe pintar el WebP fijo, centrado y escalado con 'cover'"
+  );
+  assert.match(
+    css,
+    /background-image:\s*image-set\(\s*url\('\.\.\/assets\/background\.webp'\)\s*type\('image\/webp'\),\s*url\('\.\.\/assets\/background\.svg'\)\s*type\('image\/svg\+xml'\)\s*\)/,
+    'image-set debe preferir WebP y dejar el SVG como respaldo'
+  );
+});
+
