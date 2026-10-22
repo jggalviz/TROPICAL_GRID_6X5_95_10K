@@ -3175,7 +3175,13 @@ body {
   align-items: stretch;
   justify-content: space-between;
   gap: 12px;
-  padding: clamp(12px, 1.7vh, 18px);
+  /* Aire generoso solo en el Bloque 3: es la tarjeta que manda en la columna y
+     sus cuatro filas (saldo, apuesta, SPIN y acciones) ganan cuerpo con un
+     margen interno amplio. El alto de la tarjeta NO depende del padding (lo
+     fija la columna, igual que el tablero), asi que este aire se lo cede la
+     fila flexible del SPIN: la caja exterior y el encaje a `100dvh` no se
+     mueven ni un pixel. Los Bloques 1 y 2 conservan su padding compacto. */
+  padding: clamp(18px, 2.2vh, 26px);
   overflow: hidden;
 }
 
@@ -3544,7 +3550,9 @@ body.is-demo .machine__side .controls__wallet {
   .machine__side .hud__value { font-size: 20px; }
   .machine__side .hud__cell--win .hud__value { font-size: 26px; }
 
-  .machine__side .controls { gap: 8px; padding: 10px; }
+  /* Bloque 3 en pantallas bajas: sigue siendo el mas aireado de la columna,
+     pero sin comerse el alto que necesita la reticula. */
+  .machine__side .controls { gap: 8px; padding: clamp(13px, 2vh, 16px); }
 
   .machine__side .balance__value { font-size: clamp(20px, 3vh, 24px); }
 
@@ -3566,6 +3574,18 @@ body.is-demo .machine__side .controls__wallet {
 /* Portatiles estrechos: la columna de control cede algo de ancho al tablero. */
 @media (max-width: 1180px) {
   .machine { --side-width: minmax(250px, 32%); }
+
+  /* Con la columna de ~300px, las columnas fijas de la fila de apuesta
+     (62 + 62 + 72 + 3 huecos de 10 = 226px) dejaban al readout de "APUESTA"
+     sin ancho util: la etiqueta se salia de su pastilla y se montaba sobre los
+     botones. Aqui las pistas pasan a fracciones con minimo, asi que el panel
+     puede permitirse el aire nuevo del Bloque 3 sin romper la fila: los
+     botones nunca bajan de 46px (objetivo tactil de 44px) y el readout se
+     queda con todo el sobrante. */
+  .machine__side .controls__bet {
+    grid-template-columns: minmax(46px, 0.8fr) minmax(0, 1.6fr) minmax(46px, 0.8fr) minmax(52px, 1fr);
+    gap: 8px;
+  }
 }
 
 /* Columna de control angosta: tipografia mas compacta para que las etiquetas
@@ -3579,6 +3599,11 @@ body.is-demo .machine__side .controls__wallet {
 
   .machine__side .hud__value { font-size: 22px; }
   .machine__side .hud__cell--win .hud__value { font-size: 30px; }
+
+  /* Readout de apuesta: en columna angosta la etiqueta se comprime antes de
+     recortarse (el valor, que es el dato, conserva su tamano). */
+  .machine__side .controls__bet .bet-readout { padding: 2px 5px; }
+  .machine__side .bet-readout__label { font-size: 8.5px; letter-spacing: 0.05em; }
 
   .machine__side .controls .btn--feature .btn__title,
   .machine__side .controls .btn--auto .btn__title {
@@ -3637,7 +3662,9 @@ body.is-demo .machine__side .controls__wallet {
   .machine__side .hud__value,
   .machine__side .hud__cell--win .hud__value { font-size: 20px; }
 
-  .machine__side .controls { gap: 8px; padding: 10px; }
+  /* A una columna el ancho sobra y el alto se reparte: el Bloque 3 mantiene su
+     aire propio (algo menor que en dos columnas para dejar sitio al tablero). */
+  .machine__side .controls { gap: 8px; padding: clamp(14px, 1.9vh, 20px); }
 
   .machine__side .controls__bet {
     grid-template-columns: 52px minmax(0, 1fr) 52px 62px;
@@ -3685,7 +3712,8 @@ body.is-demo .machine__side .controls__wallet {
 
   .machine__side .controls {
     gap: 6px;
-    padding: 8px;
+    /* Movil: se conserva el aumento sin robarle alto a la cuadricula. */
+    padding: clamp(11px, 3vw, 14px);
   }
 
   .machine__side .controls__bet {
