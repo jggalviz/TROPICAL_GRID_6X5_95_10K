@@ -1116,11 +1116,11 @@ body::after {
 .machine__logo {
   display: block;
   flex: 0 0 auto;
-  width: min(240px, 42vw);
-  max-width: 240px;
-  max-height: 180px;
-  height: auto;
-  margin: 0 auto;
+  width: auto;
+  max-width: min(240px, 42vw);
+  height: clamp(76px, 9.5vh, 110px);
+  max-height: 110px;
+  margin: 4px auto;
   object-fit: contain;
   filter:
     drop-shadow(0 10px 16px rgba(62, 3, 68, 0.28))
@@ -1882,4 +1882,567 @@ body.is-demo .balance__label::after { color: #fff3a8; }
   .machine__spark {
     animation: none !important;
   }
+}
+
+/* ==========================================================================
+   Ajuste al viewport · sin scroll vertical
+   El tablero es el unico bloque flexible: absorbe el alto disponible y las
+   casillas conservan su proporcion cuadrada. HUD, saldo y SPIN quedan siempre
+   dentro de la pantalla (1080p, 768p y movil).
+   ========================================================================== */
+
+html {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.app {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  margin: 0 auto;
+  padding-top: max(clamp(8px, 1.2vh, 14px), env(safe-area-inset-top));
+  padding-right: max(clamp(10px, 1.7vw, 24px), env(safe-area-inset-right));
+  padding-bottom: max(clamp(8px, 1.2vh, 14px), env(safe-area-inset-bottom));
+  padding-left: max(clamp(10px, 1.7vw, 24px), env(safe-area-inset-left));
+  gap: clamp(6px, 1vh, 12px);
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+}
+
+.topbar {
+  flex: 0 0 auto;
+  width: 100%;
+  gap: 10px;
+  padding: clamp(6px, 0.8vh, 10px) clamp(10px, 1.2vw, 16px);
+}
+
+.brand__mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  font-size: 21px;
+}
+
+.brand__title { font-size: clamp(16px, 1.5vw, 21px); }
+.brand__sub { font-size: 10.5px; }
+
+.topbar .icon-btn {
+  width: 38px;
+  height: 38px;
+  font-size: 15px;
+}
+
+.topbar .btn--demo {
+  min-height: 38px;
+  padding: 4px 11px;
+}
+
+.stage {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  align-items: stretch;
+  gap: clamp(8px, 1vw, 14px);
+  overflow: hidden;
+}
+
+.panel {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.machine {
+  height: 100%;
+  min-height: 0;
+  padding: clamp(8px, 1.15vh, 14px);
+  gap: clamp(6px, 0.85vh, 10px);
+  overflow: hidden;
+}
+
+.machine__hero {
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.board {
+  flex: 1 1 auto;
+  align-self: center;
+  min-height: 0;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: clamp(7px, 1vh, 14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 6 / 5;
+  gap: clamp(4px, 0.55vh, 8px);
+}
+
+.tile {
+  width: auto;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  justify-self: center;
+}
+
+.hud {
+  flex: 0 0 auto;
+  gap: clamp(5px, 0.7vh, 8px);
+}
+
+.hud__cell {
+  gap: 0;
+  padding: clamp(4px, 0.55vh, 7px) clamp(9px, 1vw, 14px);
+  border-radius: 14px;
+}
+
+.hud__label {
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.hud__value {
+  font-size: clamp(14px, 1.25vw, 18px);
+  line-height: 1.15;
+}
+
+.controls {
+  flex: 0 0 auto;
+  gap: clamp(6px, 0.8vw, 10px);
+  padding: clamp(6px, 0.8vh, 10px) clamp(8px, 1vw, 12px);
+  border-radius: 20px;
+}
+
+.controls__wallet .balance {
+  padding: clamp(4px, 0.5vh, 7px) clamp(9px, 1vw, 13px);
+}
+
+.balance__value { font-size: clamp(16px, 1.5vw, 20px); }
+
+.chip {
+  min-width: 38px;
+  height: clamp(34px, 4.4vh, 42px);
+  padding: 0 9px;
+  border-radius: 12px;
+}
+
+.bet-readout {
+  min-width: 78px;
+  padding: 3px 9px;
+  border-radius: 11px;
+}
+
+.bet-readout__value { font-size: clamp(15px, 1.4vw, 18px); }
+
+.controls .btn {
+  min-height: 48px;
+  padding: 6px 12px;
+  border-radius: 15px;
+}
+
+.controls .btn--feature { min-width: 130px; }
+
+.controls .btn--spin {
+  width: clamp(72px, 7.8vh, 92px);
+  min-width: 0;
+  padding: 7px;
+}
+
+.btn__spin-icon { font-size: 24px; }
+
+.statusbar {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+/* La columna de auditoria no debe empujar el HUD fuera del viewport. */
+@media (max-width: 1120px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .panel { display: none; }
+}
+
+/* Mantiene los controles en una sola fila tambien en laptops de 1280 px. */
+@media (min-width: 761px) and (max-width: 1320px) {
+  .controls {
+    grid-template-columns: minmax(145px, 0.8fr) minmax(210px, 1fr) auto;
+  }
+
+  .controls__actions {
+    grid-column: auto;
+    justify-content: flex-end;
+  }
+
+  .controls .btn--feature { min-width: 112px; }
+}
+
+@media (max-width: 760px) {
+  .app {
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-right: max(6px, env(safe-area-inset-right));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-left: max(6px, env(safe-area-inset-left));
+    gap: 6px;
+  }
+
+  .topbar {
+    gap: 8px;
+    padding: 7px 9px;
+  }
+
+  .brand__mark {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+    border-radius: 11px;
+  }
+
+  .brand__title { font-size: 15px; }
+  .brand__sub { display: none; }
+
+  .topbar .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .topbar .btn--demo {
+    min-height: 36px;
+    padding: 3px 9px;
+  }
+
+  .machine {
+    padding: 7px;
+    gap: 6px;
+    border-radius: 24px;
+  }
+
+  .machine::before { inset: 5px; border-radius: 19px; }
+
+  .machine__hero { min-height: 0; }
+
+  .machine__logo {
+    width: auto;
+    max-width: min(138px, 38vw);
+    height: clamp(64px, 10vh, 84px);
+    max-height: 84px;
+  }
+
+  .board {
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 100%;
+    padding: 8px;
+    border-radius: 22px;
+  }
+
+  .grid {
+    height: auto;
+    width: 100%;
+    max-width: none;
+    aspect-ratio: 6 / 5;
+    gap: 4px;
+  }
+
+  .tile {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  .hud {
+    gap: 5px;
+  }
+
+  .hud__cell {
+    padding: 5px 8px;
+    border-radius: 12px;
+  }
+
+  .hud__label { font-size: 8px; }
+  .hud__value { font-size: 13px; }
+
+  .controls {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 6px;
+    border-radius: 18px;
+  }
+
+  .controls__wallet,
+  .controls__bet,
+  .controls__actions { grid-column: 1; }
+
+  .controls__actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(104px, 1.2fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .controls .btn--feature,
+  .controls .btn--auto {
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+    padding: 5px 6px;
+  }
+
+  .controls .btn--spin {
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+    aspect-ratio: auto;
+    flex-direction: row;
+    gap: 5px;
+    padding: 7px 9px;
+    border-radius: 999px;
+  }
+
+  .chip {
+    min-width: 34px;
+    height: 36px;
+    padding: 0 7px;
+  }
+
+  .bet-readout { min-width: 72px; }
+  .statusbar { font-size: 9px; }
+}
+
+@media (max-width: 520px) {
+  .brand__title { font-size: 14px; }
+  .machine__logo { height: clamp(60px, 9vh, 72px); }
+  .machine__spark { font-size: 18px; }
+  .hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hud__cell:last-child { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Pantallas bajas (1366x768, 1440x900): el panel de controles pasa a la
+   derecha para que el tablero conserve caramelos grandes. Todo sigue dentro
+   del viewport; el HUD, el saldo y el SPIN quedan visibles.
+   -------------------------------------------------------------------------- */
+
+@media (min-width: 640px) and (max-height: 960px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .panel { display: none; }
+
+  .machine {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(264px, 23vw, 320px);
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "board hero"
+      "board hud"
+      "board controls"
+      "board status";
+    column-gap: 10px;
+    row-gap: 8px;
+    align-items: stretch;
+  }
+
+  .machine__hero {
+    grid-area: hero;
+    align-self: center;
+  }
+
+  .machine__logo { height: clamp(72px, 10.5vh, 92px); }
+
+  .board {
+    grid-area: board;
+    align-self: center;
+    justify-self: center;
+    width: min(100%, calc((100dvh - 120px) * 1.2));
+    height: auto;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .grid {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 6 / 5;
+  }
+
+  .hud { grid-area: hud; }
+
+  .controls {
+    grid-area: controls;
+    align-self: center;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .controls__wallet,
+  .controls__bet,
+  .controls__actions { grid-column: 1; }
+
+  .controls__bet { justify-content: space-between; }
+
+  .controls__actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(96px, 1.16fr) minmax(0, 1fr);
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 6px;
+  }
+
+  .controls .btn--feature,
+  .controls .btn--auto {
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+    padding: 5px 6px;
+  }
+
+  .controls .btn--feature .btn__title { font-size: 11px; }
+  .controls .btn--feature .btn__sub { font-size: 9px; }
+
+  .controls .btn--spin {
+    width: 100%;
+    min-width: 0;
+    min-height: 54px;
+    aspect-ratio: auto;
+    flex-direction: row;
+    gap: 5px;
+    padding: 7px 9px;
+    border-radius: 999px;
+  }
+
+  .statusbar {
+    grid-area: status;
+    align-self: end;
+  }
+}
+
+
+/* Moviles de 640-720 px de alto: compresion extra para no recortar el HUD. */
+@media (max-width: 760px) and (max-height: 720px) {
+  .app {
+    padding: 4px 4px 5px;
+    gap: 4px;
+  }
+
+  .topbar {
+    gap: 6px;
+    padding: 5px 7px;
+  }
+
+  .brand__mark {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+    border-radius: 9px;
+  }
+
+  .brand__title { font-size: 13px; }
+
+  .topbar .icon-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .topbar .btn--demo {
+    min-height: 32px;
+    padding: 2px 7px;
+  }
+
+  .topbar .btn--demo .btn__title { font-size: 9px; }
+
+  .machine {
+    padding: 6px;
+    gap: 5px;
+  }
+
+  .machine__logo {
+    height: 48px;
+    max-height: 48px;
+  }
+
+  .machine__spark { font-size: 16px; }
+
+  .board { padding: 6px; }
+  .grid { gap: 3px; }
+
+  .hud__cell { padding: 4px 7px; }
+  .hud__label { font-size: 7.5px; }
+  .hud__value { font-size: 12px; }
+
+  .controls {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .controls__wallet .balance { padding: 3px 9px; }
+  .balance__value { font-size: 15px; }
+
+  .chip {
+    min-width: 32px;
+    height: 32px;
+  }
+
+  .bet-readout { padding: 2px 7px; }
+  .bet-readout__value { font-size: 14px; }
+
+  .controls .btn--feature,
+  .controls .btn--auto {
+    min-height: 46px;
+    padding: 4px 5px;
+  }
+
+  .controls .btn--spin {
+    min-height: 46px;
+    padding: 5px 8px;
+  }
+
+  .btn__spin-icon { font-size: 20px; }
+  .statusbar { font-size: 8px; }
+}
+
+/* Moviles en horizontal y ventanas muy bajas: sin logo para ganar alto. */
+@media (min-width: 640px) and (max-height: 560px) {
+  .machine__hero { display: none; }
+
+  .machine {
+    grid-template-areas:
+      "board hud"
+      "board controls"
+      "board status";
+    grid-template-rows: auto 1fr auto;
+    row-gap: 6px;
+  }
+
+  .hud__cell { padding: 3px 9px; }
+  .hud__label { font-size: 8px; }
+  .hud__value { font-size: 13px; }
+
+  .controls { padding: 6px; gap: 5px; }
+  .controls .btn--feature,
+  .controls .btn--auto { min-height: 42px; }
+  .controls .btn--spin { min-height: 44px; }
+  .chip { height: 32px; min-width: 32px; }
+  .statusbar { font-size: 8px; }
 }

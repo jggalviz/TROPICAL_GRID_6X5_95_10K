@@ -59,8 +59,8 @@ test('la capa candyland mantiene el tablero protagonista y los caramelos grandes
 
   assert.match(
     css,
-    /\.machine__logo\s*\{[^}]*max-width:\s*240px;[^}]*max-height:\s*180px;[^}]*\}/,
-    'El logo debe quedar acotado a 240x180 px'
+    /\.machine__logo\s*\{[^}]*max-width:\s*min\(240px,\s*42vw\);[^}]*max-height:\s*110px;[^}]*\}/,
+    'El logo debe quedar acotado a 240x110 px como maximo'
   );
   assert.match(
     css,
@@ -69,4 +69,34 @@ test('la capa candyland mantiene el tablero protagonista y los caramelos grandes
   );
   assert.match(css, /linear-gradient\(155deg,\s*#8be8ff/, 'El fondo debe ser candyland azul/rosa');
   assert.doesNotMatch(css, /#0b1a13|#0f261c/i, 'No deben quedar fondos verde oscuro');
+});
+
+test('la maquina completa cabe en el viewport sin scroll vertical', () => {
+  const css = read(STYLE_PATH);
+
+  assert.match(
+    css,
+    /html\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;[^}]*\}/,
+    'html debe fijar el alto del viewport y bloquear el scroll'
+  );
+  assert.match(
+    css,
+    /\.app\s*\{[^}]*height:\s*100dvh;[^}]*overflow:\s*hidden;[^}]*\}/,
+    'El contenedor principal debe medir 100dvh sin desbordar'
+  );
+  assert.match(
+    css,
+    /\.machine\s*\{[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;[^}]*\}/,
+    'La maquina debe poder encogerse para ceder alto al tablero'
+  );
+  assert.match(
+    css,
+    /\.board\s*\{[^}]*flex:\s*1 1 auto;[^}]*min-height:\s*0;/,
+    'El tablero debe ser el bloque flexible del layout'
+  );
+  assert.match(
+    css,
+    /\.grid\s*\{[^}]*aspect-ratio:\s*6\s*\/\s*5;/,
+    'La cuadricula 6x5 debe conservar su proporcion'
+  );
 });
