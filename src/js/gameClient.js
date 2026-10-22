@@ -13,7 +13,7 @@
 
 import { ApiError } from './apiClient.js';
 import { TIMING, sleep, winLevel } from './uiManager.js';
-import { formatCents, makeClientSeed, makeRoundRef } from './format.js';
+import { formatCents, formatCredits, makeClientSeed, makeRoundRef } from './format.js';
 
 const AUTO_SPINS = 10;
 const RETRY_DELAY_MS = 320;
@@ -27,7 +27,12 @@ const ERROR_TEXT = {
   INVALID_ROUND_REF: 'Referencia de ronda inválida. Recarga la página.',
   PLAYER_BLOCKED: 'La cuenta está suspendida.',
   TOKEN_MISSING: 'Sesión no válida. Vuelve a iniciar sesión.',
+  TOKEN_INVALID: 'Sesión no válida o expirada.',
+  TOKEN_EXPIRED: 'Sesión expirada. Vuelve a iniciar sesión.',
   SESSION_REQUIRED: 'Necesitas un token de sesión válido.',
+  DEMO_DISABLED: 'El modo Fichas de Prueba está desactivado en este servidor.',
+  DEMO_MODE_CONFLICT: 'No puedes usar fichas de prueba con una sesión real activa.',
+  DEMO_TOKEN_NOT_ALLOWED: 'Ese token es de prueba y no permite jugar con saldo real.',
   NETWORK_ERROR: 'Sin conexión con el servidor.',
   TIMEOUT: 'El servidor no respondió a tiempo.',
   INTERNAL_ERROR: 'Error interno del servidor. Inténtalo más tarde.'
@@ -44,6 +49,7 @@ export class GameClient {
     this.betLadder = DEFAULT_LADDER.slice();
     this.betIndex = DEFAULT_LADDER.indexOf(1);
     this.balanceCents = 0;
+    this.isDemo = false;
     this.busy = false;
     this.autoRunning = false;
     this.autoRemaining = 0;
@@ -86,12 +92,62 @@ export class GameClient {
   async loadPlayer() {
     const payload = await this.api.player();
     this.balanceCents = payload.balance.cents;
+    this.isDemo = payload.demo === true;
+
     this.ui.setCurrency(payload.balance.currency);
     this.ui.setBalance(payload.balance.credits);
-    this.ui.setRoundInfo({ state: 'Lista' });
-    this.ui.setStatus(`Jugador ${payload.player.displayName}`);
+    this.ui.setDemoMode(this.isDemo);
+    this.ui.setRoundInfo({ state: this.isDemo ? 'Modo prueba' : 'Lista' });
+    this.ui.setStatus(
+      this.isDemo
+        ? `Fichas de Prueba · ${formatCredits(payload.balance.credits)} ${payload.balance.currency}`
+        : `Jugador ${payload.player.displayName}`
+    );
     this.ui.updateAffordability(this.balanceCents, this.betCents);
     return payload;
+  }
+
+  /* ------------------------------------------------------- fichas de prueba */
+
+  /**
+   * Abre una sesion de invitado con saldo virtual ("Fichas de Prueba").
+   *
+   * El backend emite un token con el claim `demo: true` y una cartera virtual de
+   * 1.000,00 VES. El cliente NO fija ni calcula el saldo: solo pinta el que
+   * devuelve el servidor en cada ronda.
+   */
+  async startDemoMode() {
+    if (this.busy) return null;
+    if (this.autoRunning) this.stopAuto('Automático detenido');
+
+    this.sfx.unlock();
+    this.sfx.click();
+    this.ui.setStatus('Cargando fichas de prueba…');
+
+    try {
+      const payload = await this.session.startDemoSession();
+      this.isDemo = true;
+      this.balanceCents = payload.balance.cents;
+
+      this.ui.setCurrency(payload.balance.currency);
+      this.ui.setBalance(payload.balance.credits);
+      this.ui.setDemoMode(true);
+      this.ui.setWin(0);
+      this.ui.setMultiplier(null);
+      this.ui.setRoundInfo({ state: 'Modo prueba' });
+      this.ui.setStatus(
+        `Fichas de Prueba · ${formatCredits(payload.balance.credits)} ${payload.balance.currency}`
+      );
+      this.ui.updateAffordability(this.balanceCents, this.betCents);
+      this.ui.toast(
+        `Fichas de prueba listas: ${formatCredits(payload.balance.credits)} ${payload.balance.currency} virtuales.`,
+        { type: 'info', timeout: 5200 }
+      );
+      return payload;
+    } catch (error) {
+      this.handleError(error);
+      return null;
+    }
   }
 
   /* ---------------------------------------------------------------- apuesta */
@@ -181,6 +237,10 @@ export class GameClient {
       this.ui.setCurrency(round.balance.currency);
       this.ui.setBalance(round.balance.credits, { deltaCents: round.balance.cents - balanceBefore });
 
+      /* El backend marca cada ronda demo: la UI lo refleja al instante. */
+      this.isDemo = round.demo === true;
+      this.ui.setDemoMode(this.isDemo);
+
       await this.present(round);
 
       this.ui.addHistory({
@@ -197,7 +257,7 @@ export class GameClient {
         rngDraws: round.audit.rngDraws
       });
       this.ui.setStatus(
-        `${round.mode === 'BUY_FEATURE' ? 'Bonus' : 'Base'} · ${round.spinsPlayed} giro(s)`
+        `${this.isDemo ? 'Prueba · ' : ''}${round.mode === 'BUY_FEATURE' ? 'Bonus' : 'Base'} · ${round.spinsPlayed} giro(s)`
       );
 
       return round;
@@ -226,8 +286,15 @@ export class GameClient {
 
         if (apiError.isAuth && retries === 0) {
           retries += 1;
+          /* Si estabamos en demo se renueva la sesion demo: nunca se cae a una
+             sesion real (ni a su saldo) por un token de invitado caducado. */
+          const wasDemo = this.session.isDemo || this.isDemo;
           this.session.invalidate();
-          await this.session.resolve();
+          if (wasDemo) {
+            await this.session.startDemoSession();
+          } else {
+            await this.session.resolve();
+          }
           continue;
         }
 
@@ -415,10 +482,16 @@ export class GameClient {
     this.ui.setStatus(`Error · ${code}`);
 
     if (code === 'SESSION_REQUIRED' || (error instanceof ApiError && error.isAuth)) {
-      this.ui.showAuthGate((token) => {
-        this.session.setToken(token);
-        this.ui.setStatus('Verificando token…');
-        this.connect().catch((inner) => this.handleError(inner));
+      this.ui.showAuthGate({
+        onSubmit: (token) => {
+          this.session.setToken(token);
+          this.ui.setStatus('Verificando token…');
+          this.connect().catch((inner) => this.handleError(inner));
+        },
+        /* Alternativa para jugar sin token real: fichas de prueba. */
+        onDemo: () => {
+          void this.startDemoMode();
+        }
       });
     }
   }

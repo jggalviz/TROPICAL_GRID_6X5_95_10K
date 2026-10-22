@@ -63,10 +63,10 @@ class SlidingWindowRateLimiter {
   }
 }
 
-/** Middleware de Express: limita por jugador autenticado o, si no hay, por IP. */
+/** Middleware de Express: limita por jugador real, invitado demo o IP. */
 function createRateLimitMiddleware(limiter = new SlidingWindowRateLimiter()) {
   return function rateLimit(req, res, next) {
-    const key = (req.player && req.player.id) || req.ip || 'anonymous';
+    const key = (req.player && req.player.id) || req.demoKey || req.ip || 'anonymous';
     const result = limiter.consume(key);
     res.setHeader('X-RateLimit-Limit', String(limiter.maxRequests));
     res.setHeader('X-RateLimit-Remaining', String(result.remaining));

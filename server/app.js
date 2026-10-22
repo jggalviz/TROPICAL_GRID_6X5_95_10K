@@ -103,7 +103,7 @@ function createApp(options = {}) {
   });
 
   /* --- API --- */
-  app.use('/api', createSessionRoutes());
+  app.use('/api', createSessionRoutes({ rateLimit }));
   app.use('/api', createGameRoutes({ rateLimit }));
 
   /* --- Front-end (solo cliente visual) --- */

@@ -54,6 +54,9 @@ export class Ui {
     this.currency = 'EUR';
     this.featureCostMultiplier = 100;
     this.busy = false;
+    this.isDemo = false;
+    this.demoCurrency = 'VES';
+    this.demoStartCredits = 1000;
     this.handlers = { onSound: null };
   }
 
@@ -72,6 +75,8 @@ export class Ui {
       mxValue: byId('mx-value'),
       balanceValue: byId('balance-value'),
       balanceCurrency: byId('balance-currency'),
+      demoBtn: byId('btn-demo'),
+      demoSub: byId('demo-sub'),
       spinBtn: byId('btn-spin'),
       spinLabel: byId('spin-label'),
       featureBtn: byId('btn-feature'),
@@ -270,6 +275,33 @@ export class Ui {
     if (this.refs.balanceCurrency) this.refs.balanceCurrency.textContent = this.currency;
   }
 
+  /**
+   * Refleja en la interfaz si el jugador esta en modo "Fichas de Prueba".
+   * El saldo mostrado sigue viniendo del servidor (cartera virtual), nunca de
+   * un calculo local.
+   *
+   * @param {boolean} active
+   * @param {{ label?: string|null }} [options] texto del subtitulo del boton
+   */
+  setDemoMode(active, { label = null } = {}) {
+    this.isDemo = Boolean(active);
+    document.body.classList.toggle('is-demo', this.isDemo);
+
+    const button = this.refs.demoBtn;
+    if (!button) return;
+    button.setAttribute('aria-pressed', this.isDemo ? 'true' : 'false');
+    button.classList.toggle('is-active', this.isDemo);
+    button.title = this.isDemo
+      ? `Modo Fichas de Prueba activo · pulsa para empezar de nuevo con ${formatCredits(this.demoStartCredits)} ${this.demoCurrency} virtuales`
+      : `Jugar gratis con ${formatCredits(this.demoStartCredits)} ${this.demoCurrency} virtuales`;
+
+    if (this.refs.demoSub) {
+      this.refs.demoSub.textContent = this.isDemo
+        ? (label || 'Modo activo')
+        : `${formatCredits(this.demoStartCredits)} ${this.demoCurrency}`;
+    }
+  }
+
   setBet(credits) {
     this.refs.betValue.textContent = formatCredits(credits);
     this.refs.betReadout.textContent = formatCredits(credits);
@@ -414,6 +446,20 @@ export class Ui {
     this.setEngineText(
       info ? `${info.code} · v${info.engineVersion} · ${info.paytableVersion}` : ''
     );
+
+    /* Modo "Fichas de Prueba": el backend publica saldo/moneda en /api/game. */
+    const demo = (info && info.demo) || {};
+    this.demoCurrency = demo.currency || 'VES';
+    this.demoStartCredits = Number.isFinite(demo.startBalanceCredits)
+      ? demo.startBalanceCredits
+      : 1000;
+    if (this.refs.demoBtn) {
+      this.refs.demoBtn.hidden = demo.enabled === false;
+      this.refs.demoBtn.title = demo.enabled === false
+        ? 'Modo Fichas de Prueba desactivado en este servidor'
+        : `Jugar gratis con ${formatCredits(this.demoStartCredits)} ${this.demoCurrency} virtuales`;
+    }
+    this.setDemoMode(this.isDemo);
   }
 
   /* ------------------------------------------------------------------- modal */
@@ -442,9 +488,21 @@ export class Ui {
   /**
    * Puerta de autenticacion manual: se usa cuando el backend no emite tokens
    * (ALLOW_DEV_SESSION=false) y no hay token en la URL ni en la sesion.
-   * @param {(token: string) => void} onSubmit
+   *
+   * Incluye la alternativa "Fichas de Prueba", que no necesita token real.
+   *
+   * @param {object} options
+   * @param {(token: string) => void} options.onSubmit token pegado por el usuario
+   * @param {(() => void)|null} [options.onDemo]    entrar en modo invitado
    */
-  showAuthGate(onSubmit) {
+  showAuthGate({ onSubmit, onDemo = null } = {}) {
+    const demoBlock = onDemo
+      ? `<button class="btn btn--demo auth-form__demo" id="auth-demo" type="button">
+           <span class="btn__title">Fichas de Prueba</span>
+           <span class="btn__sub">Jugar gratis · saldo virtual</span>
+         </button>`
+      : '';
+
     const html = `
       <h3>Sesión requerida</h3>
       <p>Este servidor no emite sesiones de prueba. Pega el token emitido por el
@@ -455,7 +513,8 @@ export class Ui {
         <input class="auth-form__input" id="token-input" type="password"
                autocomplete="off" spellcheck="false" placeholder="t1.…" />
         <button class="btn btn--spin auth-form__submit" type="submit">ENTRAR</button>
-      </form>`;
+      </form>
+      ${demoBlock}`;
 
     this.openModal('Sesión requerida', html);
 
@@ -468,6 +527,15 @@ export class Ui {
       this.closeModal();
       onSubmit(value);
     });
+
+    if (onDemo) {
+      const demoButton = this.refs.modalBody.querySelector('#auth-demo');
+      demoButton.addEventListener('click', () => {
+        this.closeModal();
+        onDemo();
+      });
+    }
+
     input.focus();
   }
 

@@ -8,10 +8,12 @@
  *  (o tu IdP) y va firmado con SESSION_SECRET.
  *
  *  Formato:  t1.<payloadBase64Url>.<firmaBase64Url>
- *  Payload:  { sub, iat, exp, jti }
+ *  Payload:  { sub, iat, exp, jti, demo? }
  *
  *  - Comparacion en tiempo constante (evita timing attacks).
  *  - `exp` obligatorio; sin expiracion el token se rechaza.
+ *  - `demo: true` marca una sesion de "Fichas de Prueba": NUNCA puede operar
+ *    contra el saldo real (ver `requireAuth` en middleware/auth.js).
  * ============================================================================
  */
 
@@ -52,10 +54,11 @@ function tokenError(code, message) {
  * @param {object} params
  * @param {string} params.playerId  uuid del jugador (claim `sub`)
  * @param {number} [params.ttlSeconds]
+ * @param {boolean} [params.demo]   true = sesion de "Fichas de Prueba"
  * @param {string} [params.secret]  solo tests
  * @returns {{ token: string, expiresAt: string, ttlSeconds: number }}
  */
-function issueToken({ playerId, ttlSeconds, secret = config.session.secret }) {
+function issueToken({ playerId, ttlSeconds, demo = false, secret = config.session.secret }) {
   if (typeof playerId !== 'string' || playerId.length < 8) {
     throw new Error('playerId invalido');
   }
@@ -64,6 +67,7 @@ function issueToken({ playerId, ttlSeconds, secret = config.session.secret }) {
   const exp = iat + Math.max(1, Math.trunc(ttl));
 
   const payload = { sub: playerId, iat, exp, jti: crypto.randomUUID() };
+  if (demo === true) payload.demo = true;
   const payloadB64 = toBase64Url(Buffer.from(JSON.stringify(payload), 'utf8'));
   const signature = hmac(payloadB64, secret);
 
@@ -105,6 +109,7 @@ function verifyToken(token, { secret = config.session.secret, now = Date.now() }
 
   if (!payload || typeof payload.sub !== 'string' || !payload.sub) throw tokenError('TOKEN_MALFORMED');
   if (!Number.isFinite(payload.exp)) throw tokenError('TOKEN_MALFORMED');
+  if (payload.demo !== undefined && payload.demo !== true) throw tokenError('TOKEN_MALFORMED');
 
   const nowSeconds = Math.floor(now / 1000);
   if (nowSeconds > payload.exp + CLOCK_SKEW_SECONDS) throw tokenError('TOKEN_EXPIRED');
@@ -112,7 +117,8 @@ function verifyToken(token, { secret = config.session.secret, now = Date.now() }
     throw tokenError('TOKEN_NOT_YET_VALID');
   }
 
-  return payload;
+  // `demo` se normaliza a booleano: el resto del backend solo mira ese campo.
+  return { ...payload, demo: payload.demo === true };
 }
 
 module.exports = { issueToken, verifyToken, TOKEN_VERSION };

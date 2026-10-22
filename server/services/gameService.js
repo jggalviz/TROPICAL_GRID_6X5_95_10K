@@ -19,6 +19,7 @@
 const engine = require('../engine/gridEngine');
 const store = require('../db');
 const { ApiError } = require('../errors');
+const { demoWallet } = require('./demoWallet');
 
 const ROUND_REF_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 const CLIENT_SEED_PATTERN = /^[\x20-\x7E]{0,64}$/;
@@ -75,7 +76,7 @@ function mapStoreError(error) {
 }
 
 /** Envelope publico: resultado del motor + saldo autoritativo + metadatos. */
-function toPublicRound({ roundId, engineResult, balanceCents, currency, replayed }) {
+function toPublicRound({ roundId, engineResult, balanceCents, currency, replayed, demo = false }) {
   const certifiedRtp = engineResult.mode === 'BUY_FEATURE'
     ? engine.CERTIFIED_RTP.feature
     : engine.CERTIFIED_RTP.base;
@@ -83,6 +84,8 @@ function toPublicRound({ roundId, engineResult, balanceCents, currency, replayed
   return {
     roundId,
     replayed,
+    /* true = ronda de "Fichas de Prueba": saldo virtual, sin cargo real. */
+    demo,
     balance: {
       cents: balanceCents,
       credits: centsToCredits(balanceCents),
@@ -203,6 +206,114 @@ async function playRound({ player, betCents, buyFeature = false, clientSeed, rou
   });
 }
 
+/**
+ * Ejecuta una ronda en modo "Fichas de Prueba".
+ *
+ * Usa EXACTAMENTE el mismo motor (`engine.playRound`) que una ronda real, pero
+ * liquida en la cartera virtual en memoria: no hay `playRoundAtomic`, no hay
+ * debito/credito en Supabase y el saldo devuelto es ficticio.
+ *
+ * @param {object} params
+ * @param {string} params.demoKey  clave de la cartera virtual del invitado
+ * @param {number} params.betCents
+ * @param {boolean} [params.buyFeature]
+ * @param {string} [params.clientSeed]
+ * @param {string} [params.roundRef] idempotencia del cliente
+ */
+async function playDemoRound({ demoKey, betCents, buyFeature = false, clientSeed, roundRef }) {
+  validateBetCents(betCents);
+  if (typeof buyFeature !== 'boolean') {
+    throw ApiError.badRequest('INVALID_MODE', 'buyFeature debe ser booleano.');
+  }
+  const ref = validateRoundRef(roundRef);
+  const seed = validateClientSeed(clientSeed);
+
+  const wagerCents = buyFeature
+    ? betCents * engine.FEATURE_CONFIG.costMultiplier
+    : betCents;
+
+  /* Reintento idempotente: misma roundRef -> misma ronda, sin re-cobrar. */
+  const replay = demoWallet.findReplay(demoKey, ref);
+  if (replay) {
+    return toPublicRound({
+      roundId: replay.roundId,
+      engineResult: replay.result,
+      balanceCents: replay.balanceCents,
+      currency: demoWallet.currency,
+      replayed: true,
+      demo: true
+    });
+  }
+
+  const wallet = demoWallet.ensure(demoKey);
+  if (wallet.balanceCents < wagerCents) {
+    throw ApiError.paymentRequired(
+      'INSUFFICIENT_FUNDS',
+      `Fichas de prueba insuficientes: se necesitan ${centsToCredits(wagerCents)} creditos virtuales.`
+    );
+  }
+
+  /* --- Mismo motor autoritativo que en dinero real --- */
+  let engineResult;
+  try {
+    engineResult = engine.playRound({ betCents, buyFeature, clientSeed: seed });
+  } catch {
+    throw ApiError.internal('El motor no pudo resolver la ronda.');
+  }
+
+  let committed;
+  try {
+    committed = demoWallet.commit({
+      key: demoKey,
+      roundRef: ref,
+      wagerCents: engineResult.wagerCents,
+      winCents: engineResult.totalWinCents,
+      result: engineResult
+    });
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (error && error.code === 'INSUFFICIENT_FUNDS') {
+      throw ApiError.paymentRequired('INSUFFICIENT_FUNDS', 'Fichas de prueba insuficientes.');
+    }
+    throw ApiError.internal('No se pudo liquidar la ronda de prueba.');
+  }
+
+  if (committed.replayed && committed.stored) {
+    return toPublicRound({
+      roundId: committed.roundId,
+      engineResult: committed.stored.result,
+      balanceCents: committed.balanceCents,
+      currency: wallet.currency,
+      replayed: true,
+      demo: true
+    });
+  }
+
+  return toPublicRound({
+    roundId: committed.roundId,
+    engineResult,
+    balanceCents: committed.balanceCents,
+    currency: wallet.currency,
+    replayed: false,
+    demo: true
+  });
+}
+
+/** Saldo virtual actual (lo crea con 1.000,00 si es la primera visita). */
+function getDemoBalance(demoKey) {
+  const snapshot = demoWallet.snapshot(demoKey);
+  return {
+    demo: true,
+    player: {
+      id: demoKey,
+      displayName: snapshot.displayName,
+      currency: snapshot.balance.currency
+    },
+    balance: snapshot.balance,
+    stats: snapshot.stats
+  };
+}
+
 async function getBalance(player) {
   const fresh = await store.getPlayer(player.id);
   return {
@@ -226,7 +337,9 @@ function getGameInfo() {
 
 module.exports = {
   playRound,
+  playDemoRound,
   getBalance,
+  getDemoBalance,
   getGameInfo,
   __internals: { validateBetCents, validateRoundRef, validateClientSeed, centsToCredits }
 };

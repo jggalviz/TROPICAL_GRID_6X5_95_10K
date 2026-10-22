@@ -116,6 +116,14 @@ export class ApiClient {
   }
 
   /**
+   * Sesion de "Fichas de Prueba": el backend emite un token con `demo: true`
+   * y una cartera virtual (1.000,00 VES por defecto). No requiere token previo.
+   */
+  createDemoSession(playerId = 'invitado_demo') {
+    return this.request('POST', '/api/demo/session', { body: { playerId } });
+  }
+
+  /**
    * Resuelve una ronda. `roundRef` es obligatorio para que un reintento no
    * pueda cobrar dos veces.
    */

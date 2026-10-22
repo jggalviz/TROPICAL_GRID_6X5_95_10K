@@ -6,8 +6,12 @@
  *   2. Token en sessionStorage (sobrevive a recargas de la pestaña).
  *   3. POST /api/session (solo si el backend tiene ALLOW_DEV_SESSION=true).
  *
+ * El modo "Fichas de Prueba" no depende de las tres anteriores: pide su propio
+ * token de invitado a POST /api/demo/session (claim `demo: true`), que el backend
+ * acepta sin IdP y liquida contra una cartera virtual en memoria.
+ *
  * En produccion el paso 3 responde 403 y el jugador debe entrar con el token
- * emitido por el IdP del operador.
+ * emitido por el IdP del operador (o pulsar "Fichas de Prueba").
  */
 
 import { ApiError } from './apiClient.js';
@@ -87,6 +91,9 @@ export class SessionManager {
     this.token = null;
     this.player = null;
     this.source = null;
+    this.demoPayload = null;
+    /* true = token de invitado (Fichas de Prueba), no de jugador real. */
+    this.isDemo = false;
   }
 
   /** Token actual, o null si todavia no hay sesion. */
@@ -97,6 +104,7 @@ export class SessionManager {
   setToken(token, source = 'manual') {
     this.token = token || null;
     this.source = source;
+    this.isDemo = source === 'demo';
     if (token) storeToken(token);
     return this.token;
   }
@@ -142,10 +150,30 @@ export class SessionManager {
     return { token: payload.token, source: 'dev', player: this.player };
   }
 
+  /**
+   * Abre una sesion temporal de invitado para "Fichas de Prueba".
+   *
+   * No requiere token de usuario real: el backend emite uno propio con el claim
+   * `demo: true` y una cartera virtual (1.000,00 VES por defecto). El saldo SIEMPRE
+   * lo calcula el servidor; `payload.balance` es solo la foto inicial.
+   *
+   * @param {string} [alias]  alias de invitado (`invitado_demo` por defecto)
+   * @returns {Promise<object>} payload de /api/demo/session
+   */
+  async startDemoSession(alias = 'invitado_demo') {
+    const payload = await this.api.createDemoSession(alias);
+    this.setToken(payload.token, 'demo');
+    this.player = payload.player || null;
+    this.demoPayload = payload;
+    return payload;
+  }
+
   /** Descarta la sesion actual (token caducado, cambio de jugador...). */
   invalidate() {
     this.token = null;
     this.player = null;
+    this.demoPayload = null;
+    this.isDemo = false;
     clearToken();
   }
 }

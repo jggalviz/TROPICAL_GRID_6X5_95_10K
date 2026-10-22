@@ -46,6 +46,20 @@ const SESSION_SECRET = str('SESSION_SECRET');
 const ALLOW_DEV_SESSION = bool('ALLOW_DEV_SESSION', !IS_PRODUCTION);
 
 /**
+ * Modo "Fichas de Prueba" (jugar gratis).
+ *
+ * No es una sesion de jugador real: el backend emite un token firmado con el
+ * claim `demo: true` y liquida las rondas en una cartera VIRTUAL en memoria.
+ * Nunca se escribe en la base de datos de Supabase ni se mueve dinero real.
+ */
+const DEMO_MODE_ENABLED = bool('DEMO_MODE_ENABLED', true);
+const DEMO_START_BALANCE_CENTS = int('DEMO_START_BALANCE_CENTS', 100000); // 1.000,00
+const DEMO_SESSION_TTL_MS = int('DEMO_SESSION_TTL_MS', 30 * 60 * 1000);
+const DEMO_TOKEN_TTL_SECONDS = int('DEMO_TOKEN_TTL_SECONDS', 2 * 60 * 60);
+const DEMO_MAX_SESSIONS = int('DEMO_MAX_SESSIONS', 2000);
+const DEMO_MAX_IDEMPOTENT_ROUNDS = int('DEMO_MAX_IDEMPOTENT_ROUNDS', 5);
+
+/**
  * Driver de persistencia:
  *   - "supabase": produccion (debito/credito atomico via RPC).
  *   - "memory":   solo desarrollo local; el saldo vive en RAM y se pierde al
@@ -69,6 +83,15 @@ if (!/^[0-9a-f]{64}$/i.test(SESSION_SECRET)) {
 }
 if (IS_PRODUCTION && ALLOW_DEV_SESSION) {
   problems.push('ALLOW_DEV_SESSION debe ser false en produccion (el token debe venir de tu IdP)');
+}
+if (DEMO_MODE_ENABLED && DEMO_START_BALANCE_CENTS <= 0) {
+  problems.push('DEMO_START_BALANCE_CENTS debe ser un entero positivo');
+}
+if (DEMO_MODE_ENABLED && (DEMO_SESSION_TTL_MS < 60000 || DEMO_TOKEN_TTL_SECONDS < 60)) {
+  problems.push('El TTL del modo demo es demasiado corto (minimo 60 s de sesion y de token)');
+}
+if (DEMO_MAX_SESSIONS < 1 || DEMO_MAX_IDEMPOTENT_ROUNDS < 1) {
+  problems.push('DEMO_MAX_SESSIONS y DEMO_MAX_IDEMPOTENT_ROUNDS deben ser >= 1');
 }
 
 if (problems.length > 0) {
@@ -97,6 +120,17 @@ const config = Object.freeze({
     ttlSeconds: int('SESSION_TTL_SECONDS', 3600),
     allowDevSession: ALLOW_DEV_SESSION,
     devDemoPlayerId: str('DEV_DEMO_PLAYER_ID', '00000000-0000-4000-8000-000000000001')
+  }),
+  demo: Object.freeze({
+    enabled: DEMO_MODE_ENABLED,
+    guestId: str('DEMO_GUEST_ID', 'invitado_demo'),
+    guestName: str('DEMO_GUEST_NAME', 'Invitado Demo'),
+    currency: str('DEMO_CURRENCY', 'VES'),
+    startBalanceCents: DEMO_START_BALANCE_CENTS,
+    sessionTtlMs: DEMO_SESSION_TTL_MS,
+    tokenTtlSeconds: DEMO_TOKEN_TTL_SECONDS,
+    maxSessions: DEMO_MAX_SESSIONS,
+    maxIdempotentRounds: DEMO_MAX_IDEMPOTENT_ROUNDS
   }),
   limits: Object.freeze({
     maxExposureMultiplier: int('MAX_EXPOSURE_MULTIPLIER', 10000),

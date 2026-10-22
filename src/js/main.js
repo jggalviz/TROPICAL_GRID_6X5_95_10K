@@ -44,6 +44,15 @@ function bootstrap() {
   ui.refs.betDown.addEventListener('click', () => game.changeBet(-1));
   ui.refs.betMax.addEventListener('click', () => game.setMaxBet());
 
+  /* "Fichas de Prueba": sesion de invitado con saldo virtual (1.000,00 VES).
+     Siempre funciona, incluso sin token real ni ALLOW_DEV_SESSION. */
+  if (ui.refs.demoBtn) {
+    ui.refs.demoBtn.addEventListener('click', () => {
+      if (game.autoRunning) game.stopAuto('Automático detenido');
+      void game.startDemoMode();
+    });
+  }
+
   document.addEventListener('keydown', (event) => {
     const target = event.target;
     if (target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
@@ -70,10 +79,15 @@ function bootstrap() {
     ui.setBusy(false);
     if (error && (error.code === 'SESSION_REQUIRED' || (error instanceof ApiError && error.isAuth))) {
       ui.setStatus('Sesión requerida');
-      ui.showAuthGate((token) => {
-        session.setToken(token);
-        ui.setStatus('Verificando token…');
-        start();
+      ui.showAuthGate({
+        onSubmit: (token) => {
+          session.setToken(token);
+          ui.setStatus('Verificando token…');
+          start();
+        },
+        onDemo: () => {
+          void game.startDemoMode();
+        }
       });
       return;
     }
