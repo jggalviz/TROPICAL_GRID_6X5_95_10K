@@ -43,7 +43,8 @@ soportado es «una sola función que exporta la app» + estáticos en `public/**
 - **Local:** `npm start` → `server/index.js` → sirve `public/` y `/api/*` en
   `http://localhost:3000`. Nada cambia para el desarrollador.
 - **Vercel:** `public/**` se publica en el CDN; todo lo demás entra a la función
-  `server.js` (la misma app Express).
+  `server.js` (la misma app Express). El bundle de la función **excluye**
+  `public/` y `.env` (ver §5.1).
 
 > `server.js` debe contener `require('express')` de forma literal: el builder
 > oficial `@vercel/express` lo inspecciona para detectar el entrypoint. Si algún
@@ -130,6 +131,54 @@ por lo que `req.url` conserva la ruta original (`/api/spin`) y Express enruta
 igual que en local. El preset declara la ruta `filesystem` antes del catch-all
 `/(.*)`, así que `public/index.html` tiene prioridad sobre la función.
 
+### 5.1 Higiene del bundle serverless (`functions.excludeFiles`)
+
+`vercel.json` excluye del bundle de la función lo que el CDN ya sirve:
+
+```json
+"functions": {
+  "server.js": {
+    "excludeFiles": "{public,.env,.env.*}"
+  }
+}
+```
+
+**Por qué.** `@vercel/nft` analiza el grafo de `server.js` y, al encontrar
+`express.static(PUBLIC_DIR)`, marca todo `public/` como *asset*; además
+`dotenv` arrastra `.env`. Sin exclusión, `@vercel/node` mete el frontend en la
+función y lo recompila de ESM a CommonJS, con logs como:
+
+```
+Compiling "main.js" from ESM to CommonJS...
+Compiling "format.js" from ESM to CommonJS...
+```
+
+Eso duplica los estáticos (CDN + función), engorda el bundle y puede romper el
+build si algún archivo del cliente no es compatible con Babel. La exclusión
+**no** afecta al CDN: `public/**` se sigue publicando con el build
+`@vercel/static` y aparece en `.vercel/output/static/`.
+
+**Detalles que no conviene cambiar:**
+
+- La clave debe ser exactamente `server.js`, el entrypoint que resuelve
+  `@vercel/express`; `@vercel/node` aplica `config.functions[entrypoint]`.
+- Se excluye la **carpeta** `public`, no `public/**`: NFT resuelve cada patrón
+  como ruta y en Windows los globs `**` sobre separadores `\` no matchean. Al
+  excluir la carpeta, NFT ni siquiera expande su contenido.
+- Por eso `server/app.js` no debe volver a usar `res.sendFile(...)` sobre
+  `public/`: NFT lo traza como asset y vuelve a meter `index.html` en la
+  función. El índice se sirve con `express.static(..., { index: 'index.html' })`;
+  en Vercel lo entrega el CDN antes de llegar a la función.
+
+Verificación rápida tras `vercel build`:
+
+```bash
+vercel build
+# El log NO debe contener: Compiling "<archivo>" from ESM to CommonJS...
+ls .vercel/output/functions/index.func   # sin public/ ni .env
+ls .vercel/output/static                 # index.html + src/**
+```
+
 ## 6. Verificación tras el despliegue
 
 ```bash
@@ -186,6 +235,8 @@ pública, el comportamiento actual es aceptable.
 | `403 CORS_FORBIDDEN` | Frontend en otro dominio: añádelo a `ALLOWED_ORIGINS` |
 | `401 TOKEN_MISSING` | Usa `POST /api/demo/session` (modo demo) o el token del IdP |
 | `403 DEMO_DISABLED` | `DEMO_MODE_ENABLED=false` en ese entorno |
+| Logs `Compiling "main.js" from ESM to CommonJS...` | `functions["server.js"].excludeFiles` no incluye `public`; revisa `vercel.json` (§5.1) |
+| `.env` dentro de `.vercel/output/functions/…` | Igual: añade `.env` y `.env.*` a `excludeFiles` (§5.1) |
 
 ## 9. Alternativa: servidor propio
 

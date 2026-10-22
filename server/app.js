@@ -122,15 +122,16 @@ function createApp(options = {}) {
   app.use('/api', createGameRoutes({ rateLimit }));
 
   /* --- Front-end (solo cliente visual) ---
-     Un unico arbol estatico: `public/`. En Vercel, ese directorio lo sirve el
-     CDN y no llega a esta funcion; en local lo sirve este middleware. */
-  app.get('/', (req, res) => {
-    res.setHeader('Cache-Control', 'no-cache');
-    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-  });
+     Un unico arbol estatico: `public/`. En Vercel ese directorio lo publica el
+     CDN antes de llegar a esta funcion; en local lo sirve este middleware.
+
+     No hay ruta explicita para `/`: `index: 'index.html'` hace que el propio
+     `express.static` responda `/` con `public/index.html` (y `setHeaders` le
+     aplica `no-cache`). Evitamos `res.sendFile(...)` porque NFT lo traza como
+     asset y duplicaria `public/` dentro del bundle serverless. */
   app.use(
     express.static(PUBLIC_DIR, {
-      index: false,
+      index: 'index.html',
       dotfiles: 'ignore',
       maxAge: config.isProduction ? '1h' : 0,
       setHeaders(res, filePath) {

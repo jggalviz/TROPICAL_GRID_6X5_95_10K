@@ -1,6 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "express",
+  "functions": {
+    "server.js": {
+      "excludeFiles": "{public,.env,.env.*}"
+    }
+  },
   "headers": [
     {
       "source": "/",
