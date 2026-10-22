@@ -2936,6 +2936,20 @@ body {
     inset 0 22px 34px -26px rgba(255, 255, 255, 0.75),
     inset 0 -20px 30px -22px rgba(255, 108, 198, 0.32);
 
+  /* Misma receta, escala del tablero: la pieza mide ~4 veces mas que una
+     tarjeta del lateral, asi que la sombra proyectada gana difusion (40px) y
+     el bisel interno se reparte en mas alto para que el volumen no se lea
+     plano. Los dos ultimos `inset` son los que dan el "colchon" de gominola
+     arriba (luz) y abajo (magenta). */
+  --candy-depth-board:
+    0 16px 40px -10px rgba(60, 10, 90, 0.5),
+    0 2px 10px -2px rgba(60, 10, 90, 0.25),
+    0 0 28px rgba(255, 142, 214, 0.18),
+    inset 0 2px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -3px 0 rgba(206, 58, 164, 0.3),
+    inset 0 26px 40px -30px rgba(255, 255, 255, 0.7),
+    inset 0 -24px 34px -26px rgba(255, 108, 198, 0.35);
+
   /* 1) Sin contenedor general: ni marco, ni fondo, ni velo. */
   border: 0;
   border-radius: 0;
@@ -3436,29 +3450,36 @@ body.is-demo .machine__side .controls__wallet {
 }
 
 .machine__table .board {
-  /* Borde de 1 px + padding = 36 px: el mismo `--board-overhead` que usa el
-     calculo de ancho, asi la cuadricula no se sale ni un pixel. El tablero
-     conserva 1 px (no los 2 px de las tarjetas del lateral) justo por eso; el
-     filo glaseado se mantiene porque `--candy-rim` pinta el borde igual. */
+  /* 2 px de filo + padding tope = 36 px, exactamente `--board-overhead`
+     (2 x 16 px de padding + 2 x 2 px de borde). Asi el calculo de ancho de
+     arriba agota el alto disponible sin pasarse nunca del contenedor: el
+     presupuesto es un tope, y como el padding real (12-16 px) siempre queda
+     por debajo, sobra holgura en vez de faltar. El grosor es el mismo que el
+     de las tarjetas del lateral para que las cuatro piezas compartan el hilo
+     de luz; el filo se ve igual porque lo pinta `--candy-rim` en `border-box`. */
   width: min(100%, calc((100dvh - var(--board-chrome)) * 6 / 5));
   height: auto;
   padding: clamp(12px, 1.3vh, 16px);
-  border: 1px solid transparent;
+  border: 2px solid transparent;
   border-radius: var(--candy-radius);
-  box-shadow:
-    0 18px 44px -10px rgba(60, 10, 90, 0.5),
-    0 3px 10px -2px rgba(60, 10, 90, 0.2),
-    0 0 30px rgba(255, 142, 214, 0.2),
-    inset 0 2px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -3px 0 rgba(206, 58, 164, 0.24),
-    inset 0 24px 38px -28px rgba(255, 255, 255, 0.7);
+  /* Fondo de cristal declarado aqui (no solo heredado de la regla comun): si
+     se reordena la hoja, el tablero no pierde el lavado ni el filo. */
+  background: var(--candy-wash), var(--candy-body), var(--candy-rim);
+  /* Sin desenfoque de fondo: sobre la ilustracion Chrome lo rasteriza como
+     caja recta y el corte asoma en las esquinas del radio. El degradado
+     propio da el mismo vidrio sin artefacto posible. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--candy-depth-board);
 }
 
-/* El anillo interior pasa del arcoiris al hilo glaseado del resto de tarjetas. */
+/* El anillo interior pasa del arcoiris al hilo glaseado del resto de tarjetas.
+   El radio es concentrico con el marco (inset 5 px) para que las esquinas no
+   se "abran" respecto al borde del tablero. */
 .machine__table .board::before {
   inset: 5px;
   padding: 1px;
-  border-radius: calc(var(--candy-radius) - 7px);
+  border-radius: calc(var(--candy-radius) - 5px);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.18) 34%, rgba(255, 255, 255, 0.04) 72%);
   opacity: 0.5;
@@ -3613,7 +3634,11 @@ body.is-demo .machine__side .controls__wallet {
   }
 
   .machine__table .board {
-    width: min(100%, calc((100cqh - 32px) * 6 / 5));
+    /* Se mide el propio contenedor y se descuenta el mismo presupuesto de
+       chrome que en la vista de dos columnas (padding + borde del marco), en
+       vez de un literal: si cambia el padding, el calculo sigue siendo valido
+       y la cuadricula nunca empuja scroll. */
+    width: min(100%, calc((100cqh - var(--board-overhead)) * 6 / 5));
     height: auto;
     margin-inline: auto;
   }
