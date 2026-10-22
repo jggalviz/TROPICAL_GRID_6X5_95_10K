@@ -45,6 +45,7 @@ function bootstrap() {
   ui.refs.betMax.addEventListener('click', () => game.setMaxBet());
 
   /* "Fichas de Prueba": sesion de invitado con saldo virtual (1.000,00 VES).
+     Se activa sola al arrancar sin token; el boton reinicia la cartera virtual.
      Siempre funciona, incluso sin token real ni ALLOW_DEV_SESSION. */
   if (ui.refs.demoBtn) {
     ui.refs.demoBtn.addEventListener('click', () => {
@@ -74,10 +75,23 @@ function bootstrap() {
     }
   });
 
-  /* --- Arranque --- */
-  const start = () => game.boot().catch((error) => {
+  /* --- Arranque ---
+     Sin token valido el cliente entra en modo prueba automaticamente: la
+     maquina queda lista para girar con saldo virtual y sin modal previo. */
+  const start = () => game.boot().catch(async (error) => {
     ui.setBusy(false);
     if (error && (error.code === 'SESSION_REQUIRED' || (error instanceof ApiError && error.isAuth))) {
+      /* Sin token valido se entra en modo prueba. La puerta de token queda solo
+         para cuando el servidor desactiva las fichas de prueba. */
+      const demo = await game.startDemoMode({ silent: true });
+      if (demo) return;
+
+      if (!game.demoIsBlocked_()) {
+        /* Fallo transitorio (red, 429, 5xx): no se pide token. */
+        ui.setStatus('Modo prueba no disponible · reintenta');
+        return;
+      }
+
       ui.setStatus('Sesión requerida');
       ui.showAuthGate({
         onSubmit: (token) => {

@@ -4,13 +4,23 @@ Sesión de invitado con saldo **virtual** para probar el slot sin IdP, sin token
 y sin tocar Supabase. El motor es exactamente el mismo (`gridEngine.playRound`), por
 lo que la matriz 6x5, las cascadas y el RTP son los certificados.
 
+El cliente lo activa **solo**: si al cargar la página no hay token en la URL
+(`?token=…`) ni en `localStorage`, `SessionManager.resolve()` abre la sesión demo y
+la máquina queda lista para girar con 1.000,00 VES virtuales, sin modal de "Sesión
+requerida" ni interacción previa. El botón "Fichas de Prueba" sigue ahí para
+empezar de nuevo con cartera limpia.
+
 ## Flujo
 
 ```
-Navegador                     Backend
-   │  clic "Fichas de Prueba"    │
+Navegador                       Backend
+   │  carga sin token (o clic "Fichas de Prueba")
    ├── POST /api/demo/session ──►│  token firmado con claim `demo: true`
    │◄── { token, 1.000,00 VES } ─┤  + cartera virtual en memoria
+   │                             │
+   ├── GET /api/player ─────────►│  resolveCaller(): isDemo = true
+   │   Authorization: Bearer …   │  saldo virtual de la cartera
+   │◄── { demo: true, balance } ─┤
    │                             │
    ├── POST /api/spin ──────────►│  resolveCaller(): isDemo = true
    │   Authorization: Bearer …   │  gridEngine.playRound()
@@ -65,11 +75,11 @@ Ver `.env.example` → bloque *Fichas de Prueba*: `DEMO_MODE_ENABLED`,
 | Capa | Archivo |
 | --- | --- |
 | Botón y estilos | `public/index.html` (`#btn-demo`), `public/src/css/style.css` (`.btn--demo`, `body.is-demo`) |
-| Cliente | `public/src/js/main.js`, `public/src/js/gameClient.js` (`startDemoMode`), `public/src/js/sessionClient.js`, `public/src/js/apiClient.js`, `public/src/js/uiManager.js` (`setDemoMode`, `showAuthGate`) |
+| Cliente | `public/src/js/main.js`, `public/src/js/gameClient.js` (`startDemoMode`, `startDemoFallback_`), `public/src/js/sessionClient.js` (`resolve`, `resolveDefaultSession`), `public/src/js/apiClient.js`, `public/src/js/uiManager.js` (`setDemoMode`, `showAuthGate`) |
 | Sesión demo | `server/routes/session.js`, `server/auth/sessionToken.js`, `server/middleware/auth.js` (`resolveCaller`) |
 | Cartera virtual | `server/services/demoWallet.js`, `server/services/gameService.js` (`playDemoRound`) |
 | Ruta de juego | `server/routes/game.js`, `server/config.js`, `server/middleware/rateLimit.js` |
-| Tests | `test/demoMode.test.js` |
+| Tests | `test/demoMode.test.js`, `test/frontendSession.test.js` |
 
 ## En Vercel
 

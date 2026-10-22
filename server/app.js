@@ -154,10 +154,12 @@ function createApp(options = {}) {
       express.static(staticDir, {
         index: 'index.html',
         dotfiles: 'ignore',
-        maxAge: config.isProduction ? '1h' : 0,
+        /* Los assets no llevan hash en el nombre: se revalida siempre (304 si no
+           cambian) para que un despliegue nuevo no quede oculto tras la cache. */
+        maxAge: 0,
         setHeaders(res, filePath) {
-          // El HTML se revalida siempre; JS/CSS mantienen cache corta.
-          if (path.extname(filePath).toLowerCase() === '.html') {
+          const ext = path.extname(filePath).toLowerCase();
+          if (ext === '.html' || ext === '.js' || ext === '.css') {
             res.setHeader('Cache-Control', 'no-cache');
           }
         }

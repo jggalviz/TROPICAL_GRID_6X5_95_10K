@@ -267,6 +267,7 @@ pública, el comportamiento actual es aceptable.
 | `403 CORS_FORBIDDEN` | Frontend en otro dominio: añádelo a `ALLOWED_ORIGINS` |
 | `401 TOKEN_MISSING` | Usa `POST /api/demo/session` (modo demo) o el token del IdP |
 | `403 DEMO_DISABLED` | `DEMO_MODE_ENABLED=false` en ese entorno |
+| Tras desplegar sigue saliendo "Sesión requerida" | El navegador conserva el JS viejo. `/src/**` se sirve con `Cache-Control: no-cache` (Express y `vercel.json`): fuerza recarga (Ctrl+F5) y comprueba que el deploy incluye los cambios de `public/src/js/**` (`git status` limpio antes del push) |
 | Logs `Compiling "main.js" from ESM to CommonJS...` | La función volvió a trazar `public/`: usa `createApp({ staticDir: null })` en `server.js`, `express.static(staticDir)` y `excludeFiles` con `public` (§5.1) |
 | `.env` dentro de `.vercel/output/functions/…` | Igual: añade `.env` y `.env.*` a `excludeFiles` (§5.1) |
 

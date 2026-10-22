@@ -3,34 +3,39 @@
  *
  * Prioridad:
  *   1. Token en la URL (`?token=` o `#token=`) -> se guarda y se borra de la barra.
- *   2. Token en sessionStorage (sobrevive a recargas de la pestaña).
- *   3. POST /api/session (solo si el backend tiene ALLOW_DEV_SESSION=true).
+ *   2. Token en localStorage (sobrevive al cierre de la pestaña). Los tokens de
+ *      versiones anteriores guardados en sessionStorage se migran solos.
+ *   3. Sin token -> modo "Fichas de Prueba" AUTOMATICO: se pide un token de
+ *      invitado a POST /api/demo/session (claim `demo: true`) y el juego queda
+ *      listo para girar con saldo virtual, sin modal ni interaccion previa.
  *
- * El modo "Fichas de Prueba" no depende de las tres anteriores: pide su propio
- * token de invitado a POST /api/demo/session (claim `demo: true`), que el backend
- * acepta sin IdP y liquida contra una cartera virtual en memoria.
- *
- * En produccion el paso 3 responde 403 y el jugador debe entrar con el token
- * emitido por el IdP del operador (o pulsar "Fichas de Prueba").
+ * Solo si el operador desactiva el modo demo (DEMO_DISABLED) se recurre a
+ * POST /api/session (desarrollo, ALLOW_DEV_SESSION=true) y, en ultimo termino,
+ * al error SESSION_REQUIRED que muestra la puerta manual de token.
  */
 
 import { ApiError } from './apiClient.js';
 
 const STORAGE_KEY = 'tg65.session.v1';
 
-function safeStorage() {
+/**
+ * `localStorage` es la fuente principal (la sesion sobrevive a la pestaña);
+ * `sessionStorage` solo se usa para migrar tokens de versiones anteriores.
+ */
+function safeStorage(kind = 'local') {
   try {
+    const storage = kind === 'session' ? window.sessionStorage : window.localStorage;
+    if (!storage) return null;
     const probe = '__tg65__';
-    window.sessionStorage.setItem(probe, '1');
-    window.sessionStorage.removeItem(probe);
-    return window.sessionStorage;
+    storage.setItem(probe, '1');
+    storage.removeItem(probe);
+    return storage;
   } catch {
     return null;
   }
 }
 
-export function readStoredToken() {
-  const storage = safeStorage();
+function parseStoredToken(storage) {
   if (!storage) return null;
   try {
     const raw = storage.getItem(STORAGE_KEY);
@@ -47,19 +52,40 @@ export function readStoredToken() {
   }
 }
 
-export function storeToken(token, expiresAt = null) {
-  const storage = safeStorage();
-  if (!storage) return;
+export function readStoredToken() {
+  const stored = parseStoredToken(safeStorage('local'));
+  if (stored) return stored;
+
+  /* Compatibilidad: versiones previas guardaban el token en sessionStorage. */
+  const legacyStorage = safeStorage('session');
+  const legacy = parseStoredToken(legacyStorage);
+  if (!legacy) return null;
+
+  storeToken(legacy);
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify({ token, expiresAt }));
+    legacyStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignorado */
+  }
+  return legacy;
+}
+
+export function storeToken(token, expiresAt = null) {
+  const local = safeStorage('local');
+  if (!local) return;
+  try {
+    local.setItem(STORAGE_KEY, JSON.stringify({ token, expiresAt }));
+    const legacyStorage = safeStorage('session');
+    if (legacyStorage) legacyStorage.removeItem(STORAGE_KEY);
   } catch {
     /* almacenamiento lleno o bloqueado: se sigue en memoria */
   }
 }
 
 export function clearToken() {
-  const storage = safeStorage();
-  if (storage) {
+  for (const kind of ['local', 'session']) {
+    const storage = safeStorage(kind);
+    if (!storage) continue;
     try {
       storage.removeItem(STORAGE_KEY);
     } catch {
@@ -83,6 +109,11 @@ export function takeTokenFromUrl() {
   }
   window.history.replaceState({}, '', url.toString());
   return token;
+}
+
+/** El operador desactivo las fichas de prueba (o el servidor las prohibe). */
+function isDemoDisabled(error) {
+  return error instanceof ApiError && (error.code === 'DEMO_DISABLED' || error.status === 403);
 }
 
 export class SessionManager {
@@ -111,6 +142,10 @@ export class SessionManager {
 
   /**
    * Resuelve credenciales sin llamar aun a /api/player.
+   *
+   * Sin token en la URL ni en localStorage NO se lanza SESSION_REQUIRED: se
+   * abre una sesion de "Fichas de Prueba" para que el juego arranque listo.
+   *
    * @returns {Promise<{ token: string, source: string, player: object|null }>}
    */
   async resolve() {
@@ -126,7 +161,29 @@ export class SessionManager {
       return { token: stored, source: 'storage', player: null };
     }
 
-    return this.requestDevSession();
+    return this.resolveDefaultSession();
+  }
+
+  /**
+   * Sesion por defecto cuando no hay token: modo prueba automatico.
+   *
+   * El backend emite un token `demo: true` y una cartera virtual (1.000,00 VES),
+   * asi que la maquina queda lista para girar sin pedir nada al jugador.
+   *
+   * Solo si el operador desactivo el modo demo (DEMO_DISABLED) se intenta la
+   * sesion de desarrollo; si tampoco esta disponible, el SESSION_REQUIRED sube
+   * al arranque y la puerta manual de token sigue siendo el ultimo recurso.
+   *
+   * @returns {Promise<{ token: string, source: string, player: object|null }>}
+   */
+  async resolveDefaultSession() {
+    try {
+      const payload = await this.startDemoSession();
+      return { token: payload.token, source: 'demo', player: this.player };
+    } catch (error) {
+      if (!isDemoDisabled(error)) throw error;
+      return this.requestDevSession();
+    }
   }
 
   async requestDevSession(playerId) {

@@ -38,6 +38,16 @@ const ERROR_TEXT = {
   INTERNAL_ERROR: 'Error interno del servidor. Inténtalo más tarde.'
 };
 
+/**
+ * El servidor rechaza cualquier sesion (no es un fallo transitorio): solo en ese
+ * caso tiene sentido pedir un token a mano.
+ */
+function isSessionBlocked(error) {
+  if (!(error instanceof ApiError)) return false;
+  if (error.status === 403) return true;
+  return error.code === 'SESSION_REQUIRED' || error.code === 'DEMO_DISABLED';
+}
+
 export class GameClient {
   constructor({ api, ui, sfx, session }) {
     this.api = api;
@@ -53,6 +63,10 @@ export class GameClient {
     this.busy = false;
     this.autoRunning = false;
     this.autoRemaining = 0;
+    /* Evita intentos paralelos de recuperacion con fichas de prueba. */
+    this.demoFallbackRunning = false;
+    /* Ultimo fallo al abrir fichas de prueba: decide si se pide token o no. */
+    this.lastDemoError = null;
 
     this.ui.handlers.onSound = () => this.toggleSound();
   }
@@ -77,7 +91,11 @@ export class GameClient {
 
   async connect() {
     const resolved = await this.session.resolve();
-    this.ui.setStatus(resolved.source === 'dev' ? 'Sesión de demostración' : 'Sincronizando sesión…');
+    this.ui.setStatus(
+      resolved.source === 'dev' || resolved.source === 'demo'
+        ? 'Sesión de demostración'
+        : 'Sincronizando sesión…'
+    );
 
     try {
       await this.loadPlayer();
@@ -115,17 +133,25 @@ export class GameClient {
    * El backend emite un token con el claim `demo: true` y una cartera virtual de
    * 1.000,00 VES. El cliente NO fija ni calcula el saldo: solo pinta el que
    * devuelve el servidor en cada ronda.
+   *
+   * `silent` se usa en el arranque automatico: sin sonido ni aviso, porque el
+   * estado ya se refleja en la barra de estado y en el boton "Fichas de Prueba".
+   *
+   * @param {{ silent?: boolean }} [options]
    */
-  async startDemoMode() {
+  async startDemoMode({ silent = false } = {}) {
     if (this.busy) return null;
     if (this.autoRunning) this.stopAuto('Automático detenido');
 
-    this.sfx.unlock();
-    this.sfx.click();
+    if (!silent) {
+      this.sfx.unlock();
+      this.sfx.click();
+    }
     this.ui.setStatus('Cargando fichas de prueba…');
 
     try {
       const payload = await this.session.startDemoSession();
+      this.lastDemoError = null;
       this.isDemo = true;
       this.balanceCents = payload.balance.cents;
 
@@ -139,12 +165,15 @@ export class GameClient {
         `Fichas de Prueba · ${formatCredits(payload.balance.credits)} ${payload.balance.currency}`
       );
       this.ui.updateAffordability(this.balanceCents, this.betCents);
-      this.ui.toast(
-        `Fichas de prueba listas: ${formatCredits(payload.balance.credits)} ${payload.balance.currency} virtuales.`,
-        { type: 'info', timeout: 5200 }
-      );
+      if (!silent) {
+        this.ui.toast(
+          `Fichas de prueba listas: ${formatCredits(payload.balance.credits)} ${payload.balance.currency} virtuales.`,
+          { type: 'info', timeout: 5200 }
+        );
+      }
       return payload;
     } catch (error) {
+      this.lastDemoError = error;
       this.handleError(error);
       return null;
     }
@@ -482,17 +511,64 @@ export class GameClient {
     this.ui.setStatus(`Error · ${code}`);
 
     if (code === 'SESSION_REQUIRED' || (error instanceof ApiError && error.isAuth)) {
-      this.ui.showAuthGate({
-        onSubmit: (token) => {
-          this.session.setToken(token);
-          this.ui.setStatus('Verificando token…');
-          this.connect().catch((inner) => this.handleError(inner));
-        },
-        /* Alternativa para jugar sin token real: fichas de prueba. */
-        onDemo: () => {
-          void this.startDemoMode();
-        }
-      });
+      /* Sin sesion valida se entra en modo prueba, sin abrir el modal. */
+      this.startDemoFallback_();
     }
+  }
+
+  /**
+   * Recuperacion automatica: reabre una sesion de invitado en vez de mostrar la
+   * puerta de "Sesion requerida".
+   *
+   * @returns {boolean} true si la recuperacion ya esta en curso
+   */
+  startDemoFallback_() {
+    if (this.demoFallbackRunning) return true;
+
+    this.demoFallbackRunning = true;
+    this.ui.setStatus('Activando modo prueba…');
+    this.session.invalidate();
+
+    /* `handleError` de un giro corre antes del `finally` que libera `busy`: sin
+       esto `startDemoMode()` se descartaria y acabaria abriendo el modal. */
+    this.busy = false;
+    this.ui.setBusy(false);
+
+    void this.startDemoMode({ silent: true })
+      .then((payload) => {
+        if (payload) return;
+        if (this.demoIsBlocked_()) {
+          /* El servidor prohibe las fichas de prueba: puerta manual de token. */
+          this.showAuthGate_();
+          return;
+        }
+        /* Fallo transitorio (red, 429, 5xx): se avisa y NO se pide token. */
+        this.ui.setStatus('Modo prueba no disponible · reintenta');
+      })
+      .finally(() => {
+        this.demoFallbackRunning = false;
+      });
+
+    return true;
+  }
+
+  /** true si el ultimo fallo del modo prueba implica que el servidor lo prohibe. */
+  demoIsBlocked_() {
+    return isSessionBlocked(this.lastDemoError);
+  }
+
+  /** Puerta manual de token (solo si el servidor desactiva las fichas de prueba). */
+  showAuthGate_() {
+    this.ui.showAuthGate({
+      onSubmit: (token) => {
+        this.session.setToken(token);
+        this.ui.setStatus('Verificando token…');
+        this.connect().catch((inner) => this.handleError(inner));
+      },
+      /* Alternativa para jugar sin token real: fichas de prueba. */
+      onDemo: () => {
+        void this.startDemoMode();
+      }
+    });
   }
 }
