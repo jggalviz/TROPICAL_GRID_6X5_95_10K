@@ -19,9 +19,24 @@ const SYMBOLS_DIR = path.join(PUBLIC_DIR, 'src', 'assets', 'symbols');
 const FORMAT_PATH = path.join(PUBLIC_DIR, 'src', 'js', 'format.js');
 const STYLE_PATH = path.join(PUBLIC_DIR, 'src', 'css', 'style.css');
 const INDEX_PATH = path.join(PUBLIC_DIR, 'index.html');
-const LOGO_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'PANA-CRUSH-LOGO.png');
+const LOGO_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'PANA-CRUSH-LOGO.webp');
 
 const read = (file) => fs.readFileSync(file, 'utf8');
+
+/** Recorre los bloques de nivel superior de un contenedor RIFF/WebP. */
+const webpChunks = (buffer) => {
+  const chunks = [];
+  let offset = 12;
+
+  while (offset + 8 <= buffer.length) {
+    const fourCC = buffer.toString('ascii', offset, offset + 4);
+    const size = buffer.readUInt32LE(offset + 4);
+    chunks.push({ fourCC, offset, size });
+    offset += 8 + size + (size % 2);
+  }
+
+  return chunks;
+};
 
 test('los 20 caramelos estan en la carpeta limpia de simbolos', () => {
   for (let index = 1; index <= 20; index += 1) {
@@ -44,12 +59,34 @@ test('los 11 simbolos del motor apuntan a imagenes existentes', () => {
   }
 });
 
-test('el logo oficial se sirve y esta centrado sobre el tablero', () => {
+test('el logo animado se sirve ligero y esta centrado sobre el tablero', () => {
   const html = read(INDEX_PATH);
 
-  assert.ok(fs.existsSync(LOGO_PATH), 'Falta public/src/assets/PANA-CRUSH-LOGO.png');
+  assert.ok(fs.existsSync(LOGO_PATH), 'Falta public/src/assets/PANA-CRUSH-LOGO.webp');
+
+  // El peso es parte del contrato: el GIF original pesaba 480 KB. Se exige un
+  // WebP animado real (VP8X + ANIM + 5 ANMF) de bucle infinito y bajo 200 KB.
+  const binary = fs.readFileSync(LOGO_PATH);
+  assert.equal(binary.toString('ascii', 0, 4), 'RIFF', 'El logo debe ser un contenedor RIFF/WebP');
+  assert.equal(binary.toString('ascii', 8, 12), 'WEBP', 'El logo debe ser un contenedor RIFF/WebP');
+
+  const chunks = webpChunks(binary);
+  assert.equal(chunks[0].fourCC, 'VP8X', 'El logo debe declarar caracteristicas extendidas (VP8X)');
+
+  const anim = chunks.find((chunk) => chunk.fourCC === 'ANIM');
+  assert.ok(anim, 'El logo debe declarar animacion (bloque ANIM)');
+  assert.equal(binary.readUInt16LE(anim.offset + 12), 0, 'El bucle debe ser infinito (loop count 0)');
+
+  const frames = chunks.filter((chunk) => chunk.fourCC === 'ANMF');
+  assert.equal(frames.length, 5, 'El logo debe conservar los 5 fotogramas del GIF');
+
+  assert.ok(
+    binary.length < 200 * 1024,
+    `El logo animado debe pesar menos de 200 KB (pesa ${(binary.length / 1024).toFixed(1)} KB)`
+  );
+
   assert.match(html, /<div class="machine__hero">/);
-  assert.match(html, /src="\/src\/assets\/PANA-CRUSH-LOGO\.png"/);
+  assert.match(html, /src="\/src\/assets\/PANA-CRUSH-LOGO\.webp"/);
   assert.match(html, /alt="PANA CRUSH"/);
   assert.match(html, /width="240" height="240"/, 'El logo debe reservar 240x240 px como maximo');
 });
