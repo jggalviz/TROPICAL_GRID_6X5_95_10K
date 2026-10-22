@@ -176,4 +176,61 @@ test('el fondo ilustrado se sirve como WebP optimizado con el SVG de respaldo', 
     'image-set debe preferir WebP y dejar el SVG como respaldo'
   );
 });
+test('las fuentes candy se sirven como WOFF2 propios y sin bloquear el render', () => {
+  const css = read(STYLE_PATH);
+  const html = read(INDEX_PATH);
+  const fontsDir = path.join(PUBLIC_DIR, 'src', 'assets', 'fonts');
+  const families = [
+    'fredoka-latin.woff2',
+    'fredoka-latin-ext.woff2',
+    'lilita-one-latin.woff2',
+    'lilita-one-latin-ext.woff2'
+  ];
+
+  for (const name of families) {
+    const file = path.join(fontsDir, name);
+    assert.ok(fs.existsSync(file), `Falta public/src/assets/fonts/${name}`);
+    assert.ok(fs.statSync(file).size > 0, `${name} esta vacio`);
+    assert.equal(
+      fs.readFileSync(file).subarray(0, 4).toString('ascii'),
+      'wOF2',
+      `${name} debe ser un WOFF2 real`
+    );
+
+    const urlPattern = new RegExp(`url\\('\\.\\./assets/fonts/${name.replace(/[.]/g, '\\.')}'\\)`);
+    assert.match(css, urlPattern, `${name} debe declararse en style.css`);
+  }
+
+  assert.match(
+    css,
+    /@font-face\s*\{[^}]*font-family:\s*'Fredoka';[^}]*font-weight:\s*300 900;[^}]*font-display:\s*swap;/,
+    'Fredoka es variable (300-700) y debe declararse con `font-display: swap`'
+  );
+  assert.match(
+    css,
+    /@font-face\s*\{[^}]*font-family:\s*'Lilita One';[^}]*font-weight:\s*400 900;[^}]*font-display:\s*swap;/,
+    'Lilita One solo tiene 400 y debe declararse con `font-display: swap`'
+  );
+  assert.match(
+    html,
+    /<link rel="preload" as="font" type="font\/woff2"[\s\S]*?href="\/src\/assets\/fonts\/fredoka-latin\.woff2" crossorigin \/>/,
+    'El HTML debe precargar Fredoka desde el propio origen'
+  );
+  assert.match(
+    html,
+    /<link rel="preload" as="font" type="font\/woff2"[\s\S]*?href="\/src\/assets\/fonts\/lilita-one-latin\.woff2" crossorigin \/>/,
+    'El HTML debe precargar Lilita One desde el propio origen'
+  );
+  assert.doesNotMatch(
+    css,
+    /url\(\s*['"]?https?:\/\/fonts\.(?:googleapis|gstatic)\.com/,
+    'La CSP solo permite el propio origen: las fuentes no se piden a terceros'
+  );
+  assert.doesNotMatch(
+    css,
+    /@import\s+(?:url\()?['"]?https?:\/\/fonts\./,
+    'No debe quedar un @import remoto de Google Fonts'
+  );
+});
+
 

@@ -8,6 +8,13 @@
   <meta name="theme-color" content="#ff74c8" />
   <title>PANA CRUSH · 6×5 · RTP 95%</title>
   <link rel="stylesheet" href="/src/css/style.css" />
+  <!-- Tipografia candy: Fredoka viste la interfaz y Lilita One la marca.
+       Los WOFF2 se sirven del propio origen (la CSP es `font-src 'self'`), se
+       precargan sin bloquear el render y el CSS usa `font-display: swap`. -->
+  <link rel="preload" as="font" type="font/woff2"
+        href="/src/assets/fonts/fredoka-latin.woff2" crossorigin />
+  <link rel="preload" as="font" type="font/woff2"
+        href="/src/assets/fonts/lilita-one-latin.woff2" crossorigin />
   <!-- Critico: sin scroll vertical mientras se descarga la hoja de estilos completa -->
   <style>
     html,

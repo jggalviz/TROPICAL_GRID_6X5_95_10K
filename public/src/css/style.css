@@ -4,6 +4,65 @@
    del payload del servidor.
    ========================================================================== */
 
+/* --------------------------------------------------------------------------
+   Tipografia oficial (Google Fonts, servida desde el propio origen)
+
+   Fredoka y Lilita One se descargan de Google Fonts y se sirven como WOFF2
+   locales para no abrir la CSP (`style-src 'self'` / `font-src 'self'`) a
+   terceros ni filtrar la IP del jugador a un CDN ajeno. `display: swap`
+   pinta el texto con la fuente del sistema al instante y cambia cuando el
+   WOFF2 ya esta en cache: la descarga nunca bloquea el primer render.
+
+   Fredoka es una fuente variable 300-700 (Google rechaza `wght@900`), por eso
+   el rango declarado llega a 900: pedir 900 instancia el eje en su maximo real
+   (700) sin que el navegador sintetice una negrita falsa. Lilita One solo tiene
+   400, asi que tambien se declara 400-900 por el mismo motivo.
+   -------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url('../assets/fonts/fredoka-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url('../assets/fonts/fredoka-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+    U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Lilita One';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('../assets/fonts/lilita-one-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Lilita One';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('../assets/fonts/lilita-one-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+    U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 :root {
   --bg: #8fe9ff;
   --bg-2: #ffb4e4;
@@ -21,7 +80,24 @@
   --radius: 22px;
   --radius-sm: 14px;
   --shadow: 0 18px 40px rgba(78, 8, 74, 0.26);
-  --font: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font: 'Fredoka', 'Lilita One', 'Trebuchet MS', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Lilita One', 'Fredoka', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+
+  /* Receta candy: trazo exterior + volumen extruido (estilo caramelo). */
+  --candy-gold: #ffea4a;
+  --candy-plum: #5b0e41;
+  --candy-stroke: 1.5px rgba(0, 0, 0, 0.4);
+  --candy-stroke-sm: 1px rgba(0, 0, 0, 0.36);
+  --candy-relief: 0 3px 0 var(--candy-plum), 0 0 8px rgba(255, 255, 255, 0.6);
+  --candy-relief-sm: 0 2px 0 var(--candy-plum), 0 0 6px rgba(255, 255, 255, 0.45);
+  --candy-gold-relief:
+    0 2px 0 #d68d00,
+    0 4px 0 #a15c00,
+    0 6px 12px rgba(72, 26, 0, 0.38),
+    0 0 14px rgba(255, 234, 74, 0.5);
+  --candy-sweet-relief:
+    0 2px 0 rgba(255, 255, 255, 0.55),
+    0 1px 3px rgba(90, 30, 0, 0.35);
 }
 
 * { box-sizing: border-box; }
@@ -936,7 +1012,7 @@ body.is-demo .balance__label::after { content: " · demo"; color: var(--mango); 
   --radius: 28px;
   --radius-sm: 16px;
   --shadow: 0 26px 70px rgba(64, 3, 62, 0.34);
-  --font: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font: 'Fredoka', 'Lilita One', 'Trebuchet MS', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Fondo decorativo heredado: solo en `html`, actua como respaldo inmediato
@@ -3551,4 +3627,242 @@ body.is-demo .machine__side .controls__wallet {
 
   .machine__side .statusbar__item--right { display: none; }
 }
+
+
+/* ==========================================================================
+   MARCA TIPOGRÁFICA · CANDY / GUMMY
+   Capa final (solo presentacion). Fredoka viste toda la interfaz y Lilita One
+   firma la marca. Ninguna regla toca el layout ya validado: solo familia,
+   peso, color, trazo y relieve; los `font-size` se heredan intactos.
+   ========================================================================== */
+
+/* Fredoka es el idioma tipografico de la maquina y de sus paneles. */
+body,
+.machine,
+.machine__side,
+.modal__card,
+.panel,
+.history,
+.disclaimer,
+.toast-stack {
+  font-family: var(--font);
+}
+
+/* --------------------------------------------------------------------------
+   1) Botones de accion: caramelo con trazo exterior y relieve
+   -------------------------------------------------------------------------- */
+
+/* Receta literal sobre relleno saturado con texto claro (SPIN, AUTO, + / -). */
+.machine__side .controls .btn--spin .btn__spin-label,
+.machine__side .controls .btn--spin .btn__spin-icon,
+.machine__side .controls .btn--auto .btn__title,
+.machine__side .controls__bet .chip:not(.chip--max) {
+  font-family: var(--font);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  -webkit-text-stroke: var(--candy-stroke);
+  paint-order: stroke fill;
+  text-shadow: var(--candy-relief);
+}
+
+/* Misma receta invertida donde el texto es oscuro sobre relleno claro
+   (MAX, TROPICAL FEVER, AUTO activo): trazo blanco + brillo superior. */
+.machine__side .controls__bet .chip--max,
+.machine__side .controls .btn--feature .btn__title,
+.machine__side .controls .btn--auto[aria-pressed="true"] .btn__title {
+  font-family: var(--font);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.5);
+  paint-order: stroke fill;
+  text-shadow: var(--candy-sweet-relief);
+}
+
+/* MAX vive a 11 px: 1.5 px de trazo cerraria los glifos. */
+.machine__side .controls__bet .chip--max {
+  letter-spacing: 0.06em;
+  -webkit-text-stroke-width: 1px;
+}
+
+/* Subtitulos de los botones (FEVER 12x, AUTO 25): misma familia, sin trazo. */
+.machine__side .controls .btn__sub {
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* El boton de fichas de prueba de la topbar sigue el mismo idioma. */
+.topbar .btn--demo .btn__title {
+  font-family: var(--font);
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.3);
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 rgba(91, 14, 65, 0.45), 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+.topbar .btn--demo .btn__sub {
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* --------------------------------------------------------------------------
+   2) Valores numericos: Fredoka 900 con cifras tabulares
+   -------------------------------------------------------------------------- */
+
+.machine__side .hud__value,
+.machine__side .balance__value,
+.machine__side .bet-readout__value,
+.topbar .balance__value,
+.banner__amount,
+.tile__bomb-value {
+  font-family: var(--font);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* GANANCIA manda: oro caliente con volumen extruido (y el saldo lo secunda). */
+.machine__side .hud__cell--win .hud__value,
+.machine__side .balance__value,
+.topbar .balance__value {
+  color: var(--candy-gold);
+  -webkit-text-stroke: 1px rgba(122, 62, 0, 0.42);
+  paint-order: stroke fill;
+  text-shadow: var(--candy-gold-relief);
+}
+
+/* APUESTA y MULTIPLICADOR: blanco perla con relieve suave. */
+.machine__side .hud__cell:not(.hud__cell--win) .hud__value {
+  color: #fff;
+  -webkit-text-stroke: 1px rgba(56, 6, 70, 0.32);
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 rgba(91, 14, 65, 0.5), 0 0 10px rgba(255, 255, 255, 0.32);
+}
+
+/* El multiplicador conserva su tono mango dentro del mismo relieve. */
+.machine__side .hud__cell:not(.hud__cell--win) .hud__value--mx {
+  color: #ffea9f;
+}
+
+/* La apuesta del panel es un valor editable, no un premio: perla dorada. */
+.machine__side .bet-readout__value {
+  color: #fff6c9;
+  text-shadow: 0 2px 0 rgba(122, 62, 0, 0.4), 0 0 10px rgba(255, 232, 140, 0.35);
+}
+
+/* El feedback de subida/bajada del saldo se mantiene por encima del dorado. */
+.machine__side .balance__value.is-up,
+.topbar .balance__value.is-up {
+  color: #b6ff7d;
+  text-shadow: 0 2px 0 #2f7a12, 0 0 12px rgba(150, 255, 120, 0.55);
+}
+
+.machine__side .balance__value.is-down,
+.topbar .balance__value.is-down {
+  color: #ff9db4;
+  text-shadow: 0 2px 0 #8a1436, 0 0 12px rgba(255, 120, 150, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+   3) Etiquetas e indicadores: Fredoka 700, tracking de 1 px
+   -------------------------------------------------------------------------- */
+
+.machine__side .hud__label,
+.machine__side .balance__label,
+.machine__side .balance__currency,
+.machine__side .bet-readout__label {
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #efdcff;
+  text-shadow: 0 1px 2px rgba(46, 4, 58, 0.45);
+}
+
+/* La etiqueta de GANANCIA acompana el oro de su cifra. */
+.machine__side .hud__cell--win .hud__label {
+  color: #ffe9a8;
+}
+
+.panel__title,
+.banner__level,
+.spin-tag,
+.disclaimer {
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* --------------------------------------------------------------------------
+   4) Marca: Lilita One para el logotipo textual
+   -------------------------------------------------------------------------- */
+
+.brand__title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  -webkit-text-stroke: 1.5px rgba(0, 0, 0, 0.35);
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 var(--candy-plum), 0 0 14px rgba(255, 255, 255, 0.35);
+}
+
+.brand__sub {
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* --------------------------------------------------------------------------
+   5) Pie tecnico, avisos y caramelos con valor
+   -------------------------------------------------------------------------- */
+
+.machine__side .statusbar {
+  font-family: var(--font);
+  font-weight: 600;
+  /* Fredoka es mas ancha que la monoespaciada: 9.5 px con tracking minimo para
+     que la version del motor siga entrando completa en la columna de 495 px. */
+  font-size: 9.5px;
+  letter-spacing: 0.1px;
+  color: rgba(255, 246, 253, 0.92);
+}
+
+.machine__side .statusbar__item { font-variant-numeric: tabular-nums; }
+
+/* En una columna el pie recupera el tamano comodo de lectura. */
+@media (max-width: 899px) {
+  .machine__side .statusbar { font-size: 10px; }
+}
+
+.tile__bomb-value {
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.32);
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 rgba(91, 14, 65, 0.5), 0 0 8px rgba(255, 255, 255, 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   6) Tracking reducido en pantallas estrechas (evita que la etiqueta mas
+   larga, MULTIPLICADOR, toque el borde de su celda)
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .machine__side .hud__label,
+  .machine__side .balance__label,
+  .machine__side .balance__currency,
+  .machine__side .bet-readout__label { letter-spacing: 0.6px; }
+}
+
+@media (max-width: 520px) {
+  .machine__side .hud__label,
+  .machine__side .bet-readout__label { letter-spacing: 0.3px; }
+
+  .machine__side .controls .btn--spin .btn__spin-label { letter-spacing: 0.03em; }
+  .machine__side .controls__bet .chip--max { letter-spacing: 0.02em; }
+}
+
 
