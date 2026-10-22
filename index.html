@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Tropical Grid 6x5: slot de agrupaciones con motor autoritativo en servidor. RTP 95%, ganancia maxima 10.000x." />
+  <meta name="color-scheme" content="dark" />
+  <title>Tropical Grid 6x5 · RTP 95%</title>
+  <link rel="stylesheet" href="/src/css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true">🌴</span>
+        <div class="brand__text">
+          <h1 class="brand__title">Tropical Grid <span>6×5</span></h1>
+          <p class="brand__sub">Cluster Pays · RTP 95 % · Máx. 10.000×</p>
+        </div>
+      </div>
+
+      <div class="topbar__right">
+        <div class="balance" aria-live="polite">
+          <span class="balance__label">Saldo</span>
+          <span class="balance__value" id="balance-value">—</span>
+          <span class="balance__currency" id="balance-currency">EUR</span>
+        </div>
+        <button class="icon-btn" id="btn-sound" type="button" aria-pressed="true"
+                title="Sonido" aria-label="Activar o desactivar sonido">🔊</button>
+        <button class="icon-btn" id="btn-help" type="button"
+                title="Reglas y tabla de pagos" aria-label="Reglas y tabla de pagos">?</button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <section class="machine" aria-label="Máquina de juego">
+        <div class="hud">
+          <div class="hud__cell">
+            <span class="hud__label">Apuesta</span>
+            <span class="hud__value" id="bet-value">1,00</span>
+          </div>
+          <div class="hud__cell hud__cell--win">
+            <span class="hud__label">Ganancia</span>
+            <span class="hud__value" id="win-value">0,00</span>
+          </div>
+          <div class="hud__cell">
+            <span class="hud__label">Multiplicador</span>
+            <span class="hud__value hud__value--mx" id="mx-value">—</span>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="grid" id="grid" role="img" aria-label="Cuadrícula de 6 columnas y 5 filas"></div>
+          <div class="board__overlay" id="board-overlay" aria-live="polite">
+            <div class="banner" id="banner">
+              <span class="banner__level" id="banner-level"></span>
+              <span class="banner__amount" id="banner-amount"></span>
+            </div>
+            <div class="spin-tag" id="spin-tag"></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="controls__bet">
+            <button class="chip" id="btn-bet-down" type="button" aria-label="Bajar apuesta">−</button>
+            <div class="bet-readout">
+              <span class="bet-readout__label">Apuesta</span>
+              <strong class="bet-readout__value" id="bet-readout">1,00</strong>
+            </div>
+            <button class="chip" id="btn-bet-up" type="button" aria-label="Subir apuesta">+</button>
+            <button class="chip chip--max" id="btn-bet-max" type="button" aria-label="Apuesta máxima">MAX</button>
+          </div>
+
+          <div class="controls__actions">
+            <button class="btn btn--feature" id="btn-feature" type="button">
+              <span class="btn__title">Tropical Fever</span>
+              <span class="btn__sub" id="feature-cost">100×</span>
+            </button>
+
+            <button class="btn btn--spin" id="btn-spin" type="button">
+              <span class="btn__spin-label" id="spin-label">GIRAR</span>
+            </button>
+
+            <button class="btn btn--auto" id="btn-auto" type="button" aria-pressed="false">
+              <span class="btn__title">AUTO</span>
+              <span class="btn__sub" id="auto-count">10</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="statusbar">
+          <span class="statusbar__item" id="status-text">Conectando…</span>
+          <span class="statusbar__item statusbar__item--right" id="engine-text"></span>
+        </div>
+      </section>
+
+
+      <aside class="panel" aria-label="Información de la ronda">
+        <div class="panel__block">
+          <h2 class="panel__title">Ronda</h2>
+          <dl class="kv">
+            <dt>Estado</dt><dd id="info-state">—</dd>
+            <dt>Ronda</dt><dd id="info-round" class="mono">—</dd>
+            <dt>Hash servidor</dt><dd id="info-seedhash" class="mono mono--wrap">—</dd>
+            <dt>Semilla cliente</dt><dd id="info-clientseed" class="mono">—</dd>
+            <dt>Extracciones RNG</dt><dd id="info-draws">—</dd>
+          </dl>
+        </div>
+
+        <div class="panel__block">
+          <h2 class="panel__title">Últimas tiradas</h2>
+          <ul class="history" id="history"></ul>
+        </div>
+
+        <div class="panel__block panel__block--muted">
+          <h2 class="panel__title">Certificación</h2>
+          <dl class="kv">
+            <dt>RTP base</dt><dd id="info-rtp-base">—</dd>
+            <dt>RTP bonus</dt><dd id="info-rtp-feature">—</dd>
+            <dt>Tope por ronda</dt><dd id="info-cap">10.000×</dd>
+          </dl>
+          <p class="disclaimer">
+            Entorno de demostración con saldo virtual. Los resultados se generan en el
+            servidor con un CSPRNG; el cliente solo reproduce la animación.
+          </p>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="toast-stack" id="toasts" aria-live="assertive"></div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <header class="modal__head">
+        <h2 id="modal-title">Reglas y tabla de pagos</h2>
+        <button class="icon-btn" id="btn-modal-close" type="button" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="modal__body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/js/main.js"></script>
+</body>
+</html>

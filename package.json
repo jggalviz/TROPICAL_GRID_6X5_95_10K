@@ -1,0 +1,37 @@
+{
+  "name": "tropical-grid-6x5-95-10k",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TROPICAL_GRID_6X5_95_10K - Slot de agrupacion 6x5 con motor matematico autoritativo en servidor (orientado a GLI-19)",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "simulate": "node scripts/simulate.js",
+    "simulate:validate": "node scripts/simulate.js --rounds=20000 --mode=base --crypto",
+    "simulate:feature": "node scripts/simulate.js --rounds=20000 --mode=feature",
+    "test": "node --test \"test/**/*.test.js\"",
+    "seed": "node scripts/seed.js",
+    "token": "node scripts/token.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "compression": "^1.7.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0"
+  },
+  "keywords": [
+    "slot",
+    "cluster-pays",
+    "gli-19",
+    "cspng",
+    "supabase",
+    "express"
+  ],
+  "license": "UNLICENSED"
+}
