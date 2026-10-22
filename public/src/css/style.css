@@ -2950,6 +2950,31 @@ body {
     inset 0 26px 40px -30px rgba(255, 255, 255, 0.7),
     inset 0 -24px 34px -26px rgba(255, 108, 198, 0.35);
 
+  /* Caramelo SOLIDO de la columna izquierda: a diferencia del velo anterior
+     (que lleva alfa y deja traslucir el escenario), este cuerpo usa colores
+     `#rrggbb` sin canal alfa, o sea 100% opaco. El recorrido va de magenta
+     chicle (#98246f) a ciruela hondo (#4a0d3c): saturado, pero lo bastante
+     oscuro para que las etiquetas claras del panel mantengan contraste AA
+     incluso en el borde superior (donde el brillo es mas fuerte). */
+  --candy-solid-body:
+    linear-gradient(180deg,
+      #98246f 0%,
+      #86206a 22%,
+      #74195f 50%,
+      #5f114f 76%,
+      #4a0d3c 100%) padding-box;
+
+  /* Reflejo de pastilla de caramelo, en dos capas y MEDIDO EN PIXELES para que
+     no dependa del alto de cada tarjeta (el logo mide ~200px y los controles
+     ~470px: un brillo en % inundaria una y desapareceria en la otra):
+     1) corona rosa difusa que vive casi entera por encima del filo,
+     2) banda de gloss blanco que se apaga a 28px del borde superior.
+     A partir de ahi solo queda el cuerpo opaco, asi que el texto interior
+     nunca se sienta sobre una zona lavada. */
+  --candy-solid-wash:
+    radial-gradient(82% 128px at 50% -74px, rgba(255, 170, 236, 0.34), rgba(255, 170, 236, 0) 72%) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.30) 0, rgba(255, 255, 255, 0.08) 9px, rgba(255, 255, 255, 0) 28px) padding-box;
+
   /* 1) Sin contenedor general: ni marco, ni fondo, ni velo. */
   border: 0;
   border-radius: 0;
@@ -2984,7 +3009,10 @@ body {
    Se retiro el `backdrop-filter`: sobre un fondo degradado Chrome puede
    rasterizar el desenfoque como una caja recta y el corte asoma en las
    esquinas (el "halo rectangular" oscuro). El degradado propio da cuerpo
-   suficiente, sin artefacto posible y sin coste de GPU por tarjeta. */
+   suficiente, sin artefacto posible y sin coste de GPU por tarjeta.
+   El tablero se queda con este vidrio; las tres tarjetas de la columna
+   izquierda lo sustituyen por el caramelo OPACO (ver el apartado "a) Paneles
+   de la columna izquierda" mas abajo). */
 .machine__side .machine__hero,
 .machine__side .hud,
 .machine__side .controls,
@@ -3958,27 +3986,26 @@ body,
 }
 
 /* --------------------------------------------------------------------------
-   a) Panel contenedor: cristal morado con filo glaseado
-   El `backdrop-filter` del boceto se sustituye por gradiente propio: sobre el
-   fondo ilustrado Chrome rasteriza el desenfoque como una caja recta y el
-   corte asoma en las esquinas (el halo rectangular ya documentado). El vidrio
-   se consigue con el velo superior y los biseles internos.
+   a) Paneles de la columna izquierda (Bloques 1-3): caramelo OPACO
+   Los velos translucidos de la regla comun dejan pasar la ilustracion del
+   escenario y las tres tarjetas se leian "lavadas". Esta regla las sustituye
+   (misma especificidad, mas abajo en la hoja) por el cuerpo solido + los velos
+   de brillo, conservando el filo glaseado de 2px (`--candy-rim`) y la sombra
+   organica validada (`--candy-depth`). Aqui solo cambia COMO se pinta la
+   tarjeta, no su caja: el borde sigue siendo el mismo filo de 2px y el radio
+   se unifica en `--panel-radius` para las tres piezas (el logo heredaba
+   `--candy-radius`, que solo divergia 2px en pantallas de menos de 760px de
+   alto). El encaje a `100dvh` y la rejilla de dos columnas no se mueven ni un
+   pixel. El tablero (`--candy-wash` / `--candy-body`) queda como estaba.
    -------------------------------------------------------------------------- */
 
+.machine__side .machine__hero,
+.machine__side .hud,
 .machine__side .controls {
   border: 2px solid transparent;
   border-radius: var(--panel-radius);
-  background:
-    linear-gradient(165deg, rgba(190, 140, 255, 0.55), rgba(92, 48, 170, 0.78)) padding-box,
-    linear-gradient(162deg,
-      rgba(255, 255, 255, 0.95) 0%,
-      rgba(255, 255, 255, 0.6) 34%,
-      rgba(255, 186, 244, 0.55) 74%,
-      rgba(226, 120, 255, 0.66) 100%) border-box;
-  box-shadow:
-    0 12px 34px rgba(50, 0, 90, 0.45),
-    inset 0 2px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -14px 30px rgba(60, 0, 110, 0.35);
+  background: var(--candy-solid-wash), var(--candy-solid-body), var(--candy-rim);
+  box-shadow: var(--candy-depth);
 }
 
 /* --------------------------------------------------------------------------
