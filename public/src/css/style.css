@@ -2903,24 +2903,38 @@ body {
   --candy-radius: var(--panel-radius);
   --candy-radius-sm: clamp(13px, 1.7vh, 19px);
   --candy-edge: rgba(255, 255, 255, 0.44);
+  /* El velo y el cuerpo de la tarjeta se pintan SOLO dentro del padding
+     (`padding-box`): los 2px del borde los ocupa el filo de caramelo
+     (`--candy-rim`), asi el marco no se ensucia con el degradado interior. */
   --candy-wash:
-    radial-gradient(120% 74% at 20% -12%, rgba(255, 255, 255, 0.34), transparent 62%),
-    radial-gradient(96% 62% at 86% 0%, rgba(255, 214, 244, 0.24), transparent 58%);
+    radial-gradient(120% 74% at 20% -12%, rgba(255, 255, 255, 0.34), transparent 62%) padding-box,
+    radial-gradient(96% 62% at 86% 0%, rgba(255, 214, 244, 0.24), transparent 58%) padding-box;
   --candy-body:
     linear-gradient(168deg,
       rgba(255, 178, 230, 0.34) 0%,
       rgba(168, 96, 205, 0.40) 24%,
       rgba(94, 26, 126, 0.60) 62%,
-      rgba(46, 8, 70, 0.74) 100%);
+      rgba(46, 8, 70, 0.74) 100%) padding-box;
+
+  /* Filo "candy glaseado": un degrade de luz que solo se ve en los 2px del
+     borde (blanco arriba, rosa/magenta abajo). Se pinta con `border-box`. */
+  --candy-rim:
+    linear-gradient(158deg,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 232, 250, 0.66) 24%,
+      rgba(255, 156, 218, 0.50) 56%,
+      rgba(208, 56, 164, 0.66) 100%) border-box;
+
+  /* Volumen de gominola: sombra envolvente (sin el anillo de 1px que duplicaba
+     el borde) + bisel interno claro arriba y magenta abajo. */
   --candy-depth:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    0 16px 34px rgba(44, 3, 56, 0.34),
-    0 2px 6px rgba(44, 3, 56, 0.16),
-    0 0 26px rgba(255, 142, 214, 0.20),
-    inset 0 2px 0 rgba(255, 255, 255, 0.56),
-    inset 0 18px 30px -20px rgba(255, 255, 255, 0.62),
-    inset 0 -14px 26px rgba(255, 108, 198, 0.16);
-  --candy-glass: blur(9px) saturate(1.16);
+    0 12px 32px -8px rgba(60, 10, 90, 0.45),
+    0 2px 8px -2px rgba(60, 10, 90, 0.22),
+    0 0 22px rgba(255, 142, 214, 0.16),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -3px 0 rgba(206, 58, 164, 0.26),
+    inset 0 22px 34px -26px rgba(255, 255, 255, 0.75),
+    inset 0 -20px 30px -22px rgba(255, 108, 198, 0.32);
 
   /* 1) Sin contenedor general: ni marco, ni fondo, ni velo. */
   border: 0;
@@ -2947,22 +2961,29 @@ body {
 .machine__side {
   justify-content: flex-start;
   gap: var(--side-gap);
-  overflow: hidden;
+  /* Visible para que el logo pueda desbordar su tarjeta por arriba; el
+     recorte real lo hace `.machine` (que conserva `overflow: hidden`). */
+  overflow: visible;
 }
 
-/* 3) Estilo comun: glassmorphism rosado/morado con filo de caramelo. */
+/* 3) Estilo comun: tarjeta de caramelo con borde glaseado de 2px.
+   Se retiro el `backdrop-filter`: sobre un fondo degradado Chrome puede
+   rasterizar el desenfoque como una caja recta y el corte asoma en las
+   esquinas (el "halo rectangular" oscuro). El degradado propio da cuerpo
+   suficiente, sin artefacto posible y sin coste de GPU por tarjeta. */
 .machine__side .machine__hero,
 .machine__side .hud,
 .machine__side .controls,
 .machine__table .board {
   position: relative;
+  z-index: 1;
   min-width: 0;
-  border: 1px solid var(--panel-border);
+  /* Borde transparente: el color lo pone `--candy-rim` en la capa `border-box`,
+     asi el filo recorre la curvatura real del radio sin trazos rectos. */
+  border: 2px solid transparent;
   border-radius: var(--panel-radius);
-  background: var(--candy-wash), var(--candy-body);
+  background: var(--candy-wash), var(--candy-body), var(--candy-rim);
   box-shadow: var(--candy-depth);
-  backdrop-filter: var(--candy-glass);
-  -webkit-backdrop-filter: var(--candy-glass);
 }
 
 /* --------------------------------------------------------------------------
@@ -2971,48 +2992,57 @@ body {
 
 .machine__side .machine__hero {
   flex: 0 0 var(--side-hero-h);
-  align-items: stretch;
-  padding: 0;
-  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  /* La tarjeta se queda mas corta que el logo: el sobrante sale fuera en vez
+     de quedar recortado. El padding le da aire respecto al filo glaseado. */
+  padding: clamp(4px, 0.7vh, 9px) clamp(8px, 1vw, 14px);
+  overflow: visible;
+  z-index: 2;
 }
 
-/* El halo del logo se recorta dentro de la tarjeta para que el borde glaseado
-   quede limpio en vez de quedar invadido por el resplandor. */
+/* Halo de azucar: elipse difusa (nunca una caja) que ya puede respirar fuera
+   de la tarjeta porque el bloque no recorta. */
 .machine__side .machine__hero::before {
   width: min(100%, 420px);
   max-width: 92%;
-  opacity: 0.66;
-  filter: blur(22px);
+  opacity: 0.55;
+  filter: blur(24px);
+  pointer-events: none;
 }
 
-/* La imagen llena la tarjeta conservando el logotipo completo (el PNG oficial
-   es 1254x1254: con `cover` se recortaba el texto inferior). El latido solo
-   escala hacia arriba, asi que nunca deja aire en los bordes. */
+/* El PNG oficial es 1254x1254 con aire transparente alrededor: `contain`
+   conserva el logotipo completo y el 112% de alto lo saca de la tarjeta por
+   arriba, como una pegatina, en vez de dejarlo encerrado. `pointer-events:
+   none` evita que el area sobrante (transparente) robe clics a los bloques. */
 .machine__side .machine__logo {
   width: 100%;
-  height: 100%;
+  height: 112%;
   max-width: none;
   max-height: none;
   margin: 0;
   object-fit: contain;
   object-position: center;
+  transform: translateY(-6px) rotate(-1.2deg);
+  transform-origin: 50% 72%;
+  pointer-events: none;
   animation: pana-logo-sheen 6.4s ease-in-out infinite;
 }
 
 @keyframes pana-logo-sheen {
   0%,
   100% {
-    transform: scale(1);
+    transform: translateY(-6px) rotate(-1.2deg) scale(1);
     filter:
-      drop-shadow(0 10px 16px rgba(62, 3, 68, 0.28))
-      drop-shadow(0 0 18px rgba(255, 255, 255, 0.22));
+      drop-shadow(0 14px 18px rgba(62, 3, 68, 0.32))
+      drop-shadow(0 0 20px rgba(255, 255, 255, 0.28));
   }
   50% {
-    transform: scale(1.045);
+    transform: translateY(-11px) rotate(-1.8deg) scale(1.035);
     filter:
       brightness(1.06)
-      drop-shadow(0 14px 22px rgba(62, 3, 68, 0.34))
-      drop-shadow(0 0 26px rgba(255, 240, 170, 0.46));
+      drop-shadow(0 20px 26px rgba(62, 3, 68, 0.38))
+      drop-shadow(0 0 28px rgba(255, 240, 170, 0.52));
   }
 }
 
@@ -3407,19 +3437,21 @@ body.is-demo .machine__side .controls__wallet {
 
 .machine__table .board {
   /* Borde de 1 px + padding = 36 px: el mismo `--board-overhead` que usa el
-     calculo de ancho, asi la cuadricula no se sale ni un pixel. */
+     calculo de ancho, asi la cuadricula no se sale ni un pixel. El tablero
+     conserva 1 px (no los 2 px de las tarjetas del lateral) justo por eso; el
+     filo glaseado se mantiene porque `--candy-rim` pinta el borde igual. */
   width: min(100%, calc((100dvh - var(--board-chrome)) * 6 / 5));
   height: auto;
   padding: clamp(12px, 1.3vh, 16px);
+  border: 1px solid transparent;
   border-radius: var(--candy-radius);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 26px 52px rgba(44, 3, 56, 0.34),
-    0 0 34px rgba(255, 142, 214, 0.26),
-    inset 0 2px 0 rgba(255, 255, 255, 0.52),
-    inset 0 -16px 34px rgba(255, 108, 198, 0.16);
-  backdrop-filter: blur(8px) saturate(1.14);
-  -webkit-backdrop-filter: blur(8px) saturate(1.14);
+    0 18px 44px -10px rgba(60, 10, 90, 0.5),
+    0 3px 10px -2px rgba(60, 10, 90, 0.2),
+    0 0 30px rgba(255, 142, 214, 0.2),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -3px 0 rgba(206, 58, 164, 0.24),
+    inset 0 24px 38px -28px rgba(255, 255, 255, 0.7);
 }
 
 /* El anillo interior pasa del arcoiris al hilo glaseado del resto de tarjetas. */
