@@ -2811,8 +2811,20 @@ body {
    ========================================================================== */
 
 .machine {
+  /* --- Reparto vertical de la columna izquierda ---------------------------
+     Un unico `gap` entre los tres bloques; el logo y los indicadores tienen
+     alto fijo y el panel de controles absorbe el espacio restante. La fila se
+     dimensiona por el tablero (`grid-template-rows: auto` + `align-content`)
+     para que la columna empiece y acabe exactamente donde la cuadricula. */
+  --side-gap: 14px;
+  --side-hero-h: clamp(150px, 25.6dvh, 276px);
+  --side-hud-h: clamp(84px, 9.3dvh, 100px);
+  --panel-radius: 20px;
+  --panel-border: rgba(255, 255, 255, 0.38);
+  --panel-body: linear-gradient(160deg, rgba(176, 128, 240, 0.55), rgba(96, 52, 160, 0.72));
+
   /* Variables compartidas por las cuatro tarjetas. */
-  --candy-radius: clamp(16px, 2.1vh, 24px);
+  --candy-radius: var(--panel-radius);
   --candy-radius-sm: clamp(13px, 1.7vh, 19px);
   --candy-edge: rgba(255, 255, 255, 0.44);
   --candy-wash:
@@ -2843,17 +2855,22 @@ body {
   -webkit-backdrop-filter: none;
   min-height: 0;
   overflow: hidden;
+
+  /* La fila mide lo que mide el tablero y se centra en el escenario: asi la
+     columna izquierda comparte la misma linea superior e inferior. */
+  grid-template-rows: auto;
+  align-content: center;
+  align-items: stretch;
 }
 
 /* El trazo discontinuo del marco antiguo ya no tiene sentido. */
 .machine::before { display: none; }
 
-/* 2) Columna izquierda transparente: tres tarjetas separadas fisicamente.
-   El bloque de controles se apoya en el borde inferior (`margin-top: auto`)
-   para que el aire quede entre los indicadores y los controles. */
+/* 2) Columna izquierda transparente: tres tarjetas separadas fisicamente y
+   repartidas con un unico `gap` (sin margenes sueltos). */
 .machine__side {
   justify-content: flex-start;
-  gap: clamp(12px, 1.5vh, 16px);
+  gap: var(--side-gap);
   overflow: hidden;
 }
 
@@ -2864,8 +2881,8 @@ body {
 .machine__table .board {
   position: relative;
   min-width: 0;
-  border: 2px solid var(--candy-edge);
-  border-radius: var(--candy-radius);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
   background: var(--candy-wash), var(--candy-body);
   box-shadow: var(--candy-depth);
   backdrop-filter: var(--candy-glass);
@@ -2873,108 +2890,450 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Bloque 1 · Tarjeta del logo
+   Bloque 1 · Tarjeta del logo (alto fijo, imagen a sangre)
    -------------------------------------------------------------------------- */
 
 .machine__side .machine__hero {
-  padding: clamp(4px, 0.8vh, 10px) clamp(8px, 1.2vw, 16px) clamp(2px, 0.5vh, 6px);
+  flex: 0 0 var(--side-hero-h);
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* El halo del logo se recorta dentro de la tarjeta para que el borde glaseado
    quede limpio en vez de quedar invadido por el resplandor. */
 .machine__side .machine__hero::before {
-  width: min(100%, 320px);
+  width: min(100%, 420px);
   max-width: 92%;
-  opacity: 0.72;
+  opacity: 0.66;
   filter: blur(22px);
+}
+
+/* La imagen llena la tarjeta conservando el logotipo completo (el PNG oficial
+   es 1254x1254: con `cover` se recortaba el texto inferior). El latido solo
+   escala hacia arriba, asi que nunca deja aire en los bordes. */
+.machine__side .machine__logo {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  object-fit: contain;
+  object-position: center;
+  animation: pana-logo-sheen 6.4s ease-in-out infinite;
+}
+
+@keyframes pana-logo-sheen {
+  0%,
+  100% {
+    transform: scale(1);
+    filter:
+      drop-shadow(0 10px 16px rgba(62, 3, 68, 0.28))
+      drop-shadow(0 0 18px rgba(255, 255, 255, 0.22));
+  }
+  50% {
+    transform: scale(1.045);
+    filter:
+      brightness(1.06)
+      drop-shadow(0 14px 22px rgba(62, 3, 68, 0.34))
+      drop-shadow(0 0 26px rgba(255, 240, 170, 0.46));
+  }
 }
 
 /* --------------------------------------------------------------------------
    Bloque 2 · Tarjeta de indicadores (APUESTA / GANANCIA / MULTIPLICADOR)
+   GANANCIA ocupa la columna central mas ancha y es el dato protagonista.
    -------------------------------------------------------------------------- */
 
 .machine__side .hud {
-  flex: 0 0 auto;
-  padding: clamp(5px, 0.8vh, 9px);
-  gap: clamp(4px, 0.6vh, 8px);
-  border-radius: var(--candy-radius-sm);
+  flex: 0 0 var(--side-hud-h);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--panel-radius);
 }
 
-/* Cada indicador es un "pozo" glaseado dentro de la tarjeta: mismo lenguaje
-   visual, sin competir con el marco exterior. */
+/* Cada indicador es una celda centrada dentro de la tarjeta. */
 .machine__side .hud__cell {
-  padding: clamp(3px, 0.5vh, 7px) clamp(4px, 0.5vw, 10px);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: calc(var(--candy-radius-sm) - 5px);
-  background:
-    linear-gradient(180deg, rgba(38, 6, 60, 0.40), rgba(38, 6, 60, 0.22) 56%, rgba(255, 255, 255, 0.08));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 14px;
+  background: rgba(40, 10, 80, 0.35);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    inset 0 -8px 14px rgba(255, 118, 200, 0.10),
-    0 4px 10px rgba(30, 2, 44, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 4px 10px rgba(30, 2, 44, 0.18);
+  text-align: center;
 }
 
 .machine__side .hud__cell--win {
-  border-color: rgba(255, 240, 160, 0.70);
+  border-color: rgba(255, 240, 160, 0.62);
   background:
-    radial-gradient(120% 100% at 50% 118%, rgba(255, 224, 120, 0.34), transparent 62%),
-    linear-gradient(180deg, rgba(48, 8, 58, 0.44), rgba(58, 12, 64, 0.28));
+    radial-gradient(120% 100% at 50% 118%, rgba(255, 224, 120, 0.26), transparent 62%),
+    rgba(40, 10, 80, 0.42);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    inset 0 -10px 16px rgba(255, 214, 108, 0.20),
-    0 0 18px rgba(255, 229, 126, 0.30);
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 0 18px rgba(255, 229, 126, 0.26);
 }
 
 .machine__side .hud__label {
-  color: rgba(255, 236, 250, 0.88);
+  font-size: clamp(9px, 0.72vw, 11px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #e6d2ff;
   text-shadow: 0 1px 2px rgba(46, 4, 58, 0.34);
+  white-space: nowrap;
 }
 
 .machine__side .hud__value,
 .machine__side .hud__cell--win .hud__value {
-  color: #fffdf6;
-  text-shadow: 0 1px 0 rgba(46, 4, 58, 0.42), 0 0 12px rgba(255, 214, 246, 0.28);
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(46, 4, 58, 0.42), 0 0 12px rgba(255, 214, 246, 0.26);
+  font-variant-numeric: tabular-nums;
+}
+
+.machine__side .hud__cell--win .hud__value {
+  font-size: 36px;
+  color: #ffd84a;
+  text-shadow: 0 0 14px rgba(255, 200, 40, 0.6);
 }
 
 .machine__side .hud__value--mx { color: #ffe59a; }
 
 /* --------------------------------------------------------------------------
    Bloque 3 · Tarjeta de saldo y controles
+   Orden vertical: SALDO → fila de apuesta → SPIN → (Tropical Fever | AUTO).
+   El panel absorbe todo el alto que dejan el logo y los indicadores, de modo
+   que la columna cierra exactamente con el borde inferior del tablero.
    -------------------------------------------------------------------------- */
 
 .machine__side .controls {
-  /* Se apoya en el borde inferior de la columna. */
-  margin-top: auto;
-  padding: clamp(6px, 0.9vh, 11px);
-  gap: clamp(5px, 0.8vh, 9px);
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding: clamp(12px, 1.7vh, 18px);
+  overflow: hidden;
 }
 
-/* El saldo replica el "pozo" glaseado de los indicadores. */
-.machine__side .controls .balance {
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  background:
-    linear-gradient(180deg, rgba(38, 6, 60, 0.34), rgba(38, 6, 60, 0.18) 58%, rgba(255, 255, 255, 0.07));
+/* Las cuatro filas se ajustan al ancho util del panel: sin esto el texto largo
+   del pie (con `nowrap`) impone un minimo y los botones se salen del padding. */
+.machine__side .controls > * {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* a) Fila SALDO: etiqueta a la izquierda, cifra grande a la derecha. */
+.machine__side .controls__wallet {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.machine__side .controls .balance,
+body.is-demo .machine__side .controls .balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.machine__side .balance__label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #e6d2ff;
+}
+
+.machine__side .balance__value {
+  margin-left: auto;
+  font-size: clamp(22px, 2.8vh, 30px);
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(46, 4, 58, 0.4);
+}
+
+.machine__side .balance__currency {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #e6d2ff;
+}
+
+/* En modo demo el subrayado del saldo se dora. */
+body.is-demo .machine__side .controls__wallet {
+  border-bottom-color: rgba(255, 226, 111, 0.45);
+}
+
+/* b) Fila de apuesta: − | lectura | + | MAX. */
+.machine__side .controls__bet {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 62px 72px;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 10px;
+  height: clamp(56px, 6.2vh, 66px);
+}
+
+.machine__side .controls__bet .chip {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ff9fda, #e94fa7 58%, #b9227c);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    inset 0 -8px 14px rgba(58, 10, 78, 0.18);
+    0 4px 0 #8a1f72,
+    0 8px 16px rgba(73, 2, 67, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.42);
+  font-size: clamp(20px, 2.2vh, 24px);
 }
 
-/* Fuera de las tarjetas el texto de estado queda sobre el fondo ilustrado:
-   se refuerza con una sombra suave en vez de con un panel opaco. */
+.machine__side .controls__bet .chip:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.85);
+  filter: brightness(1.08);
+}
+
+.machine__side .controls__bet .chip:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #8a1f72, inset 0 2px 0 rgba(255, 255, 255, 0.36);
+}
+
+.machine__side .controls__bet .chip--max {
+  background: linear-gradient(180deg, #ffd75e, #f4a12a 58%, #e07812);
+  box-shadow:
+    0 4px 0 #a8580d,
+    0 8px 16px rgba(160, 78, 8, 0.26),
+    inset 0 2px 0 rgba(255, 255, 255, 0.46);
+  color: #5c1a22;
+  font-size: clamp(11px, 1.15vh, 12px);
+  letter-spacing: 0.06em;
+  text-shadow: none;
+}
+
+.machine__side .controls__bet .chip--max:active:not(:disabled) {
+  box-shadow: 0 1px 0 #a8580d, inset 0 2px 0 rgba(255, 255, 255, 0.4);
+}
+
+.machine__side .controls__bet .bet-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 14px;
+  background: rgba(40, 10, 80, 0.38);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.machine__side .bet-readout__label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #e6d2ff;
+}
+
+.machine__side .bet-readout__value {
+  font-size: clamp(18px, 2.1vh, 22px);
+  font-weight: 900;
+  line-height: 1.1;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(46, 4, 58, 0.38);
+}
+
+/* c+d) SPIN dominante arriba y, debajo, Tropical Fever y AUTO a la par. */
+.machine__side .controls__actions {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(56px, 1fr) clamp(60px, 7.2vh, 78px);
+  grid-template-areas:
+    "spin spin"
+    "feature auto";
+  align-items: stretch;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.machine__side .controls .btn--spin {
+  grid-area: spin;
+  width: 100%;
+  min-width: 0;
+  max-height: 130px;
+  aspect-ratio: auto;
+  flex-direction: row;
+  gap: 10px;
+  padding: 8px 18px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.4), transparent 44%),
+    linear-gradient(180deg, #ff8fdc, #e94fa7 56%, #c9247f);
+  box-shadow:
+    0 4px 0 #8a1f72,
+    0 18px 34px rgba(255, 95, 168, 0.42),
+    0 0 26px rgba(255, 122, 216, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5);
+}
+
+.machine__side .controls .btn--spin:hover:not(:disabled) {
+  filter: brightness(1.07);
+  box-shadow:
+    0 4px 0 #8a1f72,
+    0 22px 40px rgba(255, 95, 168, 0.55),
+    0 0 34px rgba(255, 122, 216, 0.6),
+    inset 0 2px 0 rgba(255, 255, 255, 0.55);
+}
+
+.machine__side .controls .btn--spin:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #8a1f72, inset 0 2px 0 rgba(255, 255, 255, 0.45);
+}
+
+.machine__side .controls .btn--spin .btn__spin-label {
+  font-size: clamp(24px, 3.6vh, 38px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(126, 6, 76, 0.38);
+}
+
+.machine__side .controls .btn__spin-icon {
+  color: #fff;
+  font-size: clamp(20px, 2.8vh, 30px);
+}
+
+/* El boton ocupado conserva su aspecto apagado (el cliente lo marca con
+   `is-busy`). */
+.machine__side .controls .btn--spin.is-busy {
+  background: linear-gradient(180deg, #a76aa5, #73436f);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.24);
+  transform: none;
+}
+
+.machine__side .controls .btn--feature,
+.machine__side .controls .btn--auto {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 6px 8px;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-radius: 16px;
+}
+
+.machine__side .controls .btn--feature {
+  grid-area: feature;
+  background: linear-gradient(180deg, #ffcf66, #f4a12a 58%, #e07812);
+  box-shadow:
+    0 4px 0 #a8580d,
+    0 12px 22px rgba(160, 78, 8, 0.26),
+    inset 0 2px 0 rgba(255, 255, 255, 0.48);
+  color: #5c1a22;
+}
+
+.machine__side .controls .btn--feature .btn__title {
+  color: #4f1220;
+  font-size: clamp(12px, 1.5vh, 15px);
+}
+
+.machine__side .controls .btn--feature .btn__sub {
+  color: rgba(79, 18, 32, 0.86);
+  font-size: clamp(10px, 1.2vh, 12px);
+}
+
+.machine__side .controls .btn--auto {
+  grid-area: auto;
+  background: linear-gradient(180deg, #8ab6ff, #5b72e8 58%, #4338bc);
+  box-shadow:
+    0 4px 0 #2b2a8f,
+    0 12px 22px rgba(38, 42, 150, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 0.42);
+  color: #fff;
+}
+
+.machine__side .controls .btn--auto .btn__title {
+  color: #fff;
+  font-size: clamp(12px, 1.5vh, 15px);
+}
+
+.machine__side .controls .btn--auto .btn__sub {
+  color: #e9e6ff;
+  font-size: clamp(10px, 1.2vh, 12px);
+}
+
+.machine__side .controls .btn--auto[aria-pressed="true"] {
+  border-color: rgba(255, 247, 163, 0.95);
+  background: linear-gradient(180deg, #ffe887, #ffae3f 62%, #ec7f1f);
+  box-shadow:
+    0 4px 0 #a8580d,
+    0 0 0 3px rgba(255, 242, 154, 0.28),
+    0 12px 24px rgba(235, 120, 25, 0.35);
+}
+
+.machine__side .controls .btn--auto[aria-pressed="true"] .btn__title,
+.machine__side .controls .btn--auto[aria-pressed="true"] .btn__sub { color: #5d1631; }
+
+/* Pie del panel: estado de la conexion y version del motor. */
 .machine__side .statusbar {
   flex: 0 0 auto;
-  padding: 0 6px;
-  color: rgba(255, 246, 253, 0.93);
-  text-shadow: 0 1px 4px rgba(46, 4, 58, 0.55);
+  gap: 8px;
+  padding: 0;
+  color: rgba(255, 246, 253, 0.9);
+  font-size: 10px;
+  line-height: 1.2;
+  text-shadow: 0 1px 4px rgba(46, 4, 58, 0.5);
 }
 
 /* --------------------------------------------------------------------------
    Bloque 4 · Tarjeta del tablero (cuadricula 6x5)
    -------------------------------------------------------------------------- */
 
+/* La fila de `.machine` se dimensiona por este bloque, asi que el tablero usa
+   el alto del viewport (nunca el de su contenedor: seria circular). */
+.machine__table {
+  container-type: normal;
+  align-items: center;
+}
+
 .machine__table .board {
-  /* Borde de 2 px + padding = 36 px: el mismo `--board-overhead` que usa el
+  /* Borde de 1 px + padding = 36 px: el mismo `--board-overhead` que usa el
      calculo de ancho, asi la cuadricula no se sale ni un pixel. */
+  width: min(100%, calc((100dvh - var(--board-chrome)) * 6 / 5));
+  height: auto;
   padding: clamp(12px, 1.3vh, 16px);
   border-radius: var(--candy-radius);
   box-shadow:
@@ -2983,8 +3342,8 @@ body {
     0 0 34px rgba(255, 142, 214, 0.26),
     inset 0 2px 0 rgba(255, 255, 255, 0.52),
     inset 0 -16px 34px rgba(255, 108, 198, 0.16);
-  backdrop-filter: blur(7px) saturate(1.14);
-  -webkit-backdrop-filter: blur(7px) saturate(1.14);
+  backdrop-filter: blur(8px) saturate(1.14);
+  -webkit-backdrop-filter: blur(8px) saturate(1.14);
 }
 
 /* El anillo interior pasa del arcoiris al hilo glaseado del resto de tarjetas. */
@@ -3005,17 +3364,42 @@ body {
    vertical para que la cuadricula siga siendo la protagonista.
    -------------------------------------------------------------------------- */
 
+@media (max-height: 900px) {
+  .machine {
+    --side-hero-h: clamp(140px, 22dvh, 210px);
+    --side-hud-h: clamp(76px, 9.6dvh, 92px);
+  }
+}
+
 @media (max-height: 760px) {
   .machine {
     --candy-radius: 18px;
     --candy-radius-sm: 14px;
+    --panel-radius: 16px;
+    --side-gap: 10px;
+    --side-hero-h: clamp(96px, 20dvh, 150px);
+    --side-hud-h: clamp(66px, 9dvh, 78px);
   }
 
-  .machine__side { gap: clamp(10px, 1.4vh, 14px); }
+  .machine__side .hud { gap: 8px; padding: 8px; }
 
-  .machine__side .hud { padding: 4px; }
-  .machine__side .controls { padding: 6px; }
-  .machine__side .machine__hero { padding-block: 4px 2px; }
+  .machine__side .hud__label { font-size: 9.5px; letter-spacing: 0.1em; }
+  .machine__side .hud__value { font-size: 20px; }
+  .machine__side .hud__cell--win .hud__value { font-size: 26px; }
+
+  .machine__side .controls { gap: 8px; padding: 10px; }
+
+  .machine__side .balance__value { font-size: clamp(20px, 3vh, 24px); }
+
+  .machine__side .controls__bet { height: clamp(48px, 7vh, 58px); }
+
+  .machine__side .controls__actions {
+    grid-template-rows: minmax(48px, 1fr) clamp(50px, 7vh, 62px);
+    gap: 8px;
+    margin: 8px 0;
+  }
+
+  .machine__side .statusbar { font-size: 9px; }
 }
 
 /* --------------------------------------------------------------------------
@@ -3032,22 +3416,23 @@ body {
    ni empujar el tablero. */
 @media (max-width: 1080px) {
   .machine__side .hud__label {
-    font-size: 8px;
+    font-size: 8.5px;
     letter-spacing: 0.08em;
   }
 
-  .machine__side .hud__value { font-size: clamp(12px, 1.1vw, 16px); }
+  .machine__side .hud__value { font-size: 22px; }
+  .machine__side .hud__cell--win .hud__value { font-size: 30px; }
 
   .machine__side .controls .btn--feature .btn__title,
   .machine__side .controls .btn--auto .btn__title {
-    font-size: 10px;
-    letter-spacing: 0.03em;
+    font-size: 11px;
+    letter-spacing: 0.04em;
     line-height: 1.06;
   }
 
   .machine__side .controls .btn--feature .btn__sub,
   .machine__side .controls .btn--auto .btn__sub {
-    font-size: 7.5px;
+    font-size: 9px;
     letter-spacing: 0;
     white-space: nowrap;
     max-width: 100%;
@@ -3065,41 +3450,65 @@ body {
 @media (max-width: 899px) {
   .machine__side .statusbar__item--right { display: block; }
   .machine__side .statusbar { font-size: 10px; }
-
-  .machine__side .hud__label {
-    font-size: 8.5px;
-    letter-spacing: 0.12em;
-  }
-
-  .machine__side .hud__value { font-size: clamp(13px, 3.4vw, 17px); }
 }
 
-/* Una sola columna: Bloques 1-3 arriba y el tablero debajo con el alto restante. */
+/* Una sola columna: Bloques 1-3 arriba y el tablero debajo con el alto restante.
+   Aqui la columna no tiene altura definida, asi que el reparto vuelve a ser por
+   contenido (px/clamp) en vez de porcentajes. */
 @media (max-width: 899px) {
   .machine {
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 1vh, 12px);
     padding: clamp(5px, 0.8vh, 10px);
+    --side-gap: clamp(8px, 1.2vh, 12px);
+    --side-hero-h: clamp(64px, 11dvh, 104px);
+    --side-hud-h: clamp(62px, 8.5dvh, 76px);
   }
 
   .machine__side {
     flex: 0 0 auto;
     justify-content: flex-start;
-    gap: clamp(8px, 1.2vh, 14px);
-    overflow: visible;
+    overflow: hidden;
   }
 
-  .machine__side .machine__hero { padding: 0; }
+  .machine__side .machine__logo { object-position: center; }
 
-  .machine__side .machine__logo { height: clamp(64px, 10.5vh, 104px); }
+  .machine__side .hud { gap: 8px; padding: 8px; }
 
+  .machine__side .hud__label { font-size: 9px; letter-spacing: 0.1em; }
+  .machine__side .hud__value,
+  .machine__side .hud__cell--win .hud__value { font-size: 20px; }
+
+  .machine__side .controls { gap: 8px; padding: 10px; }
+
+  .machine__side .controls__bet {
+    grid-template-columns: 52px minmax(0, 1fr) 52px 62px;
+    gap: 8px;
+    height: clamp(46px, 6.4vh, 56px);
+  }
+
+  .machine__side .controls__actions {
+    grid-template-rows: minmax(46px, 1fr) clamp(50px, 6.6vh, 62px);
+    gap: 8px;
+    margin: 8px 0;
+  }
+
+  .machine__side .controls .btn--spin .btn__spin-label { font-size: clamp(20px, 3.2vh, 28px); }
+
+  /* A una columna el tablero ya no dicta la fila: se ajusta al alto que le
+     queda debajo de los controles midiendo su propio contenedor. */
   .machine__table {
     flex: 1 1 auto;
     min-height: 0;
+    container-type: size;
   }
 
-  .machine__table .board { margin-inline: auto; }
+  .machine__table .board {
+    width: min(100%, calc((100cqh - 32px) * 6 / 5));
+    height: auto;
+    margin-inline: auto;
+  }
 }
 
 /* Pantallas bajas: el logo cede su alto al tablero. */
@@ -3108,22 +3517,38 @@ body {
 }
 
 @media (max-width: 520px) {
+  .machine {
+    --side-hero-h: clamp(64px, 11dvh, 96px);
+    --side-hud-h: clamp(58px, 8dvh, 68px);
+  }
+
   .machine__side .controls {
-    gap: 4px;
-    padding: 6px;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .machine__side .controls__bet {
+    grid-template-columns: 44px minmax(0, 1fr) 44px 54px;
+    gap: 6px;
   }
 
   .machine__side .controls__actions {
-    grid-template-columns: minmax(0, 1fr) minmax(88px, 1.15fr) minmax(0, 1fr);
-    gap: 4px;
+    grid-template-rows: minmax(42px, 1fr) clamp(44px, 6vh, 54px);
+    gap: 6px;
+    margin: 6px 0;
   }
 
-  .machine__side .controls .btn--spin { min-height: 50px; }
+  .machine__side .controls .btn--spin { min-height: 42px; }
 
   .machine__side .controls .btn--feature .btn__title { font-size: 10px; }
-  .machine__side .controls .btn--feature .btn__sub { font-size: 8.5px; }
+  .machine__side .controls .btn--feature .btn__sub { font-size: 8px; }
+  .machine__side .controls .btn--auto .btn__title { font-size: 11px; }
+  .machine__side .controls .btn--auto .btn__sub { font-size: 8.5px; }
 
-  .machine__side .hud__label { font-size: 8px; }
-  .machine__side .hud__value { font-size: 13px; }
+  .machine__side .hud__label { font-size: 8px; letter-spacing: 0.06em; }
+  .machine__side .hud__value { font-size: 16px; }
+  .machine__side .hud__cell--win .hud__value { font-size: 20px; }
+
+  .machine__side .statusbar__item--right { display: none; }
 }
 
