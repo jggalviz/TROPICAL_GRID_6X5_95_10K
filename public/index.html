@@ -93,29 +93,67 @@
             </div>
 
             <div class="controls__bet">
-              <button class="chip" id="btn-bet-down" type="button" aria-label="Bajar apuesta">−</button>
+              <button class="chip gbtn gbtn--pink" id="btn-bet-down" type="button" aria-label="Bajar apuesta">
+                <svg class="chip__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <rect x="4" y="10" width="16" height="4.5" rx="2.2" fill="#fff" />
+                </svg>
+                <i class="shine" aria-hidden="true"></i>
+              </button>
               <div class="bet-readout">
                 <span class="bet-readout__label">Apuesta</span>
                 <strong class="bet-readout__value" id="bet-readout">1,00</strong>
               </div>
-              <button class="chip" id="btn-bet-up" type="button" aria-label="Subir apuesta">+</button>
-              <button class="chip chip--max" id="btn-bet-max" type="button" aria-label="Apuesta máxima">MAX</button>
+              <button class="chip gbtn gbtn--pink" id="btn-bet-up" type="button" aria-label="Subir apuesta">
+                <svg class="chip__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <rect x="4" y="10" width="16" height="4.5" rx="2.2" fill="#fff" />
+                  <rect x="9.75" y="4.25" width="4.5" height="16" rx="2.2" fill="#fff" />
+                </svg>
+                <i class="shine" aria-hidden="true"></i>
+              </button>
+              <button class="chip chip--max gbtn gbtn--gold" id="btn-bet-max" type="button" aria-label="Apuesta máxima">
+                <span class="chip__label">MAX</span>
+                <i class="shine" aria-hidden="true"></i>
+              </button>
             </div>
 
             <div class="controls__actions">
-              <button class="btn btn--feature" id="btn-feature" type="button">
-                <span class="btn__title">Tropical Fever</span>
-                <span class="btn__sub" id="feature-cost">100×</span>
+              <button class="btn btn--feature gbtn gbtn--gold" id="btn-feature" type="button">
+                <span class="btn__main">
+                  <svg class="btn__glyph" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+                    <path d="M9 1.4l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L1.8 6.7l5-.7z" />
+                  </svg>
+                  <span class="btn__title">Tropical Fever</span>
+                </span>
+                <span class="pill"><span id="feature-cost">100×</span></span>
+                <i class="shine" aria-hidden="true"></i>
               </button>
 
-              <button class="btn btn--spin" id="btn-spin" type="button">
-                <span class="btn__spin-icon" aria-hidden="true">⟳</span>
+              <button class="btn btn--spin gbtn gbtn--pink" id="btn-spin" type="button">
+                <span class="btn__spin-icon" aria-hidden="true">
+                  <svg viewBox="0 0 46 46" aria-hidden="true" focusable="false">
+                    <defs>
+                      <marker id="spin-head" viewBox="0 0 10 10" refX="7.5" refY="5"
+                              markerWidth="3.2" markerHeight="3.2" orient="auto">
+                        <path d="M0 0 10 5 0 10Z" fill="#fff" />
+                      </marker>
+                    </defs>
+                    <path d="M36.6 16.8A14.6 14.6 0 1 0 37.4 27.2" marker-end="url(#spin-head)" />
+                  </svg>
+                </span>
                 <span class="btn__spin-label" id="spin-label">SPIN</span>
+                <span class="spin-spark spin-spark--a" aria-hidden="true">✦</span>
+                <span class="spin-spark spin-spark--b" aria-hidden="true">✦</span>
+                <span class="spin-spark spin-spark--c" aria-hidden="true">✦</span>
+                <i class="shine" aria-hidden="true"></i>
               </button>
 
-              <button class="btn btn--auto" id="btn-auto" type="button" aria-pressed="false">
-                <span class="btn__title">AUTO</span>
-                <span class="btn__sub" id="auto-count">10</span>
+              <button class="btn btn--auto gbtn gbtn--blue" id="btn-auto" type="button" aria-pressed="false">
+                <span class="btn__main">
+                  <span class="btn__title">AUTO</span>
+                  <span class="btn__chev" aria-hidden="true">▶</span>
+                </span>
+                <span class="pill"><span id="auto-count">10</span></span>
+                <i class="shine" aria-hidden="true"></i>
               </button>
             </div>
 

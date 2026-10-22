@@ -3898,3 +3898,666 @@ body,
 }
 
 
+/* ==========================================================================
+   CANDY SLOT PREMIUM · panel de control y botones
+   Ultima capa, solo presentacion. No cambia ids, clases existentes ni textos:
+   anade `gbtn`, `gbtn--*`, `pill`, `shine`, `btn__main`, `btn__glyph`,
+   `btn__chev` y `spin-spark` como decoracion. Las alturas las sigue dictando
+   el layout del Bloque 3 (grid/flex ya validado), asi que la columna mide
+   exactamente lo mismo que antes en 1920x1080, 1366x768 y movil.
+   ========================================================================== */
+
+.machine {
+  /* Caras y volumenes de caramelo reutilizables. */
+  --gbtn-pink-face: linear-gradient(#ffa6ea, #ff4fc0 52%, #cf1a92) padding-box;
+  --gbtn-pink-rim: linear-gradient(#ffd0f4, #e04ab8 60%, #8a1670) border-box;
+  --gbtn-pink-depth:
+    0 5px 0 #7a1160,
+    0 9px 14px rgba(70, 0, 60, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -8px 12px rgba(120, 0, 90, 0.3);
+  --gbtn-gold-face: linear-gradient(#fff0a0, #ffc83d 50%, #f0821a) padding-box;
+  --gbtn-gold-rim: linear-gradient(#fff6c8, #e8a62a 60%, #a85a0a) border-box;
+  --gbtn-gold-depth:
+    0 5px 0 #96500a,
+    0 9px 14px rgba(90, 40, 0, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -8px 12px rgba(160, 70, 0, 0.3);
+  --gbtn-blue-face: linear-gradient(#a8c4ff, #5a72f4 52%, #2e36bc) padding-box;
+  --gbtn-blue-rim: linear-gradient(#e0eaff, #7a8cf0 60%, #2a2f96) border-box;
+  --gbtn-blue-depth:
+    0 5px 0 #1c2080,
+    0 9px 14px rgba(10, 10, 80, 0.5),
+    inset 0 2px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -8px 12px rgba(20, 20, 140, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   a) Panel contenedor: cristal morado con filo glaseado
+   El `backdrop-filter` del boceto se sustituye por gradiente propio: sobre el
+   fondo ilustrado Chrome rasteriza el desenfoque como una caja recta y el
+   corte asoma en las esquinas (el halo rectangular ya documentado). El vidrio
+   se consigue con el velo superior y los biseles internos.
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls {
+  border: 2px solid transparent;
+  border-radius: var(--panel-radius);
+  background:
+    linear-gradient(165deg, rgba(190, 140, 255, 0.55), rgba(92, 48, 170, 0.78)) padding-box,
+    linear-gradient(162deg,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0.6) 34%,
+      rgba(255, 186, 244, 0.55) 74%,
+      rgba(226, 120, 255, 0.66) 100%) border-box;
+  box-shadow:
+    0 12px 34px rgba(50, 0, 90, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -14px 30px rgba(60, 0, 110, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   b) Saldo: etiqueta dorada y cifra con degradado de caramelo
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls__wallet {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.machine__side .controls .balance,
+body.is-demo .machine__side .controls .balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 8px;
+  position: relative;
+}
+
+/* Filete dorado bajo el saldo (sustituye al borde del contenedor). */
+.machine__side .controls .balance::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 216, 74, 0.9), transparent);
+}
+
+body.is-demo .machine__side .controls .balance::after {
+  background: linear-gradient(90deg, transparent, #fff3a8, transparent);
+}
+
+.machine__side .controls .balance__label {
+  font-size: clamp(10px, 1.15vh, 12px);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #ffe27a;
+  text-shadow: 0 1px 2px rgba(60, 0, 90, 0.6);
+}
+
+.machine__side .controls .balance__value {
+  min-width: 6ch;
+  font-size: clamp(22px, 2.8vh, 34px);
+  font-weight: 900;
+  color: transparent;
+  background-image: linear-gradient(180deg, #fff6c2, #ffd84a 50%, #f0a020);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0;
+  filter: drop-shadow(0 2px 0 #7a3a00) drop-shadow(0 0 10px rgba(255, 200, 60, 0.55));
+  text-shadow: none;
+}
+
+.machine__side .controls .balance__currency {
+  font-size: clamp(10px, 1.1vh, 12px);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #fff;
+  -webkit-text-fill-color: #fff;
+  filter: none;
+  opacity: 0.85;
+  margin-left: 4px;
+}
+
+/* El feedback sube/baja se mantiene: el degradado del texto cambia de color. */
+.machine__side .controls .balance__value.is-up {
+  background-image: linear-gradient(180deg, #efffce, #b6ff7d 55%, #5fd63a);
+  filter: drop-shadow(0 2px 0 #2f7a12) drop-shadow(0 0 10px rgba(150, 255, 120, 0.55));
+  transform: scale(1.06);
+}
+
+.machine__side .controls .balance__value.is-down {
+  background-image: linear-gradient(180deg, #ffd9e2, #ff7fa2 55%, #d92a55);
+  filter: drop-shadow(0 2px 0 #8a1436) drop-shadow(0 0 10px rgba(255, 120, 150, 0.5));
+}
+
+/* --------------------------------------------------------------------------
+   c) Fila de apuesta: caja central hundida y chips de caramelo
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls__bet .bet-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 2px 8px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #2c1058, #4b2590);
+  box-shadow:
+    inset 0 6px 14px rgba(10, 0, 40, 0.7),
+    inset 0 -2px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 3px rgba(255, 216, 74, 0.35);
+}
+
+.machine__side .controls__bet .bet-readout__label {
+  font-size: clamp(9px, 1.1vh, 11px);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #ffe27a;
+  text-shadow: 0 1px 2px rgba(30, 0, 60, 0.6);
+}
+
+.machine__side .controls__bet .bet-readout__value {
+  font-size: clamp(20px, 2.6vh, 30px);
+  font-weight: 900;
+  line-height: 1.05;
+  color: #fff;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.55), 0 2px 0 #1c0a40;
+}
+
+/* --------------------------------------------------------------------------
+   d) Base 3D "caramelo" comun a - + MAX SPIN Tropical Fever AUTO
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls .gbtn {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+  font-weight: 800;
+  border: 3px solid transparent;
+  border-radius: 18px;
+  transition: transform 0.12s ease, filter 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Brillo de cristal superior: degradado radial que se apaga antes de tocar los
+   laterales, asi no deja un rectangulo visible dentro del boton. */
+.machine__side .controls .gbtn::before {
+  content: "";
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 4%;
+  height: 46%;
+  border-radius: 50% 50% 46% 46% / 100% 100% 44% 44%;
+  background:
+    radial-gradient(120% 130% at 50% -10%,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.55) 34%,
+      rgba(255, 255, 255, 0.16) 62%,
+      rgba(255, 255, 255, 0) 82%);
+  /* El degradado se apaga con mascara: sin borde recto en la base del brillo. */
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.85) 58%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.85) 58%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Rayas de caramelo sutiles (solo textura, no compite con el texto). */
+.machine__side .controls .gbtn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0 12px, transparent 12px 24px);
+  z-index: 0;
+}
+
+.machine__side .controls .gbtn > * {
+  position: relative;
+  z-index: 2;
+}
+
+.machine__side .controls .gbtn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.machine__side .controls .gbtn:active:not(:disabled) {
+  transform: translateY(4px);
+  filter: brightness(0.95);
+}
+
+.machine__side .controls .gbtn:disabled {
+  cursor: not-allowed;
+  transform: none;
+  filter: grayscale(0.5) brightness(0.85);
+}
+
+/* --- Variantes de color -------------------------------------------------- */
+
+.machine__side .controls .gbtn--pink,
+.machine__side .controls__bet .chip:not(.chip--max) {
+  background: var(--gbtn-pink-face), var(--gbtn-pink-rim);
+  box-shadow: var(--gbtn-pink-depth);
+}
+
+.machine__side .controls .gbtn--gold,
+.machine__side .controls__bet .chip--max {
+  background: var(--gbtn-gold-face), var(--gbtn-gold-rim);
+  box-shadow: var(--gbtn-gold-depth);
+}
+
+.machine__side .controls .gbtn--blue {
+  background: var(--gbtn-blue-face), var(--gbtn-blue-rim);
+  box-shadow: var(--gbtn-blue-depth);
+}
+
+/* --- Chips - y + --------------------------------------------------------- */
+
+.machine__side .controls__bet .chip.gbtn {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border-radius: 18px;
+  font-size: 0;
+}
+
+/* El chip MAX vuelve a su tipografia propia (el `font-size: 0` es solo para
+   que el SVG de - y + no herede una caja de linea). */
+.machine__side .controls__bet .chip--max.gbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(10px, 1.15vh, 12px);
+  letter-spacing: 0.04em;
+  color: #6e2d00;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.5);
+  paint-order: stroke fill;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* --------------------------------------------------------------------------
+   e) SPIN: el boton dominante
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls .btn--spin.gbtn,
+.machine__side .controls .btn--spin {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 8px 18px;
+  border: 5px solid transparent;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, #ffa8ee 0%, #ff4fc0 46%, #d11a93 100%) padding-box,
+    linear-gradient(180deg, #fff7c4, #ffc83d 45%, #b8721a) border-box;
+  box-shadow:
+    0 8px 0 #7d1160,
+    0 16px 26px rgba(90, 0, 70, 0.5),
+    0 0 26px rgba(255, 90, 210, 0.6),
+    inset 0 3px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -12px 20px rgba(130, 0, 100, 0.4);
+  animation: spinPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes spinPulse {
+  50% {
+    box-shadow:
+      0 8px 0 #7d1160,
+      0 16px 26px rgba(90, 0, 70, 0.5),
+      0 0 38px rgba(255, 120, 225, 0.85),
+      inset 0 3px 0 rgba(255, 255, 255, 0.7),
+      inset 0 -12px 20px rgba(130, 0, 100, 0.4);
+  }
+}
+
+.machine__side .controls .btn--spin .btn__spin-label {
+  font-size: clamp(26px, 4.6vh, 50px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  color: #fff;
+  -webkit-text-stroke: 2px #b5167f;
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 #8f0f63, 0 8px 12px rgba(60, 0, 50, 0.45);
+}
+
+/* El icono de giro es un SVG trazado: mismo lenguaje que los demas adornos. */
+.machine__side .controls .btn__spin-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+
+.machine__side .controls .btn__spin-icon svg {
+  width: clamp(22px, 4.2vh, 46px);
+  height: clamp(22px, 4.2vh, 46px);
+  display: block;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: drop-shadow(0 3px 0 #8f0f63);
+}
+
+/* Destellos estaticos del boton (decoracion, nunca reciben clics). */
+.machine__side .controls .btn--spin .spin-spark {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 0 8px #fff, 0 0 14px #ffd0f4;
+  animation: sparkTwinkle 2.6s ease-in-out infinite;
+}
+
+.machine__side .controls .btn--spin .spin-spark--a { top: 12%; left: 8%; font-size: 18px; }
+.machine__side .controls .btn--spin .spin-spark--b { top: 16%; right: 9%; font-size: 14px; animation-delay: 0.8s; }
+.machine__side .controls .btn--spin .spin-spark--c { bottom: 14%; right: 16%; font-size: 11px; animation-delay: 1.6s; }
+
+@keyframes sparkTwinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* Giro en curso: el boton se apaga y deja de latir. */
+.machine__side .controls .btn--spin.is-busy,
+.machine__side .controls .btn--spin.gbtn.is-busy {
+  background: linear-gradient(180deg, #a76aa5, #73436f) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2)) border-box;
+  box-shadow:
+    0 4px 0 #5b2f57,
+    inset 0 2px 0 rgba(255, 255, 255, 0.24);
+  animation: none;
+  transform: none;
+  filter: none;
+}
+
+.machine__side .controls .btn--spin.is-busy .spin-spark { display: none; }
+
+.machine__side .controls .btn--spin:disabled { animation: none; }
+
+.machine__side .controls .btn--spin:active:not(:disabled) {
+  box-shadow:
+    0 2px 0 #7d1160,
+    0 8px 16px rgba(90, 0, 70, 0.45),
+    0 0 24px rgba(255, 120, 225, 0.55),
+    inset 0 3px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -10px 18px rgba(130, 0, 100, 0.45);
+}
+
+
+/* Iconos - y + dibujados (sin texto): 26x26, trazo blanco con relieve. */
+.machine__side .controls__bet .chip__icon {
+  width: clamp(20px, 2.6vh, 26px);
+  height: clamp(20px, 2.6vh, 26px);
+  display: block;
+  filter: drop-shadow(0 2px 0 rgba(110, 0, 80, 0.6));
+  pointer-events: none;
+}
+
+.machine__side .controls .balance__value.is-down {
+  background-image: linear-gradient(180deg, #ffd9e2, #ff7fa2 55%, #d92a55);
+  filter: drop-shadow(0 2px 0 #8a1436) drop-shadow(0 0 10px rgba(255, 120, 150, 0.5));
+}
+
+
+
+
+/* --------------------------------------------------------------------------
+   f) Tropical Fever y AUTO: misma altura, un icono y una capsula de valor
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls .btn--feature.gbtn,
+.machine__side .controls .btn--auto.gbtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 20px;
+}
+
+/* Fila superior del boton: icono + titulo. El JS reescribe el texto de
+   `.btn__title`, nunca el envoltorio, asi el adorno sobrevive a cada update. */
+.machine__side .controls .btn__main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.machine__side .controls .gbtn .btn__title {
+  /* 19 px es el maximo que deja el ancho util del panel (495 px): a 21 px
+     "Tropical Fever" + la estrella no cabia y se cortaba con elipsis. */
+  font-size: clamp(11px, 2vh, 19px);
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.machine__side .controls .btn--feature.gbtn .btn__title {
+  color: #6e2d00;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.machine__side .controls .btn--auto.gbtn .btn__title {
+  color: #fff;
+  text-shadow: 0 2px 0 #1c2080;
+}
+
+/* Estrella de Tropical Fever y flecha de AUTO (16px maximos). */
+.machine__side .controls .btn__glyph,
+.machine__side .controls .btn__chev {
+  flex: 0 0 auto;
+  width: clamp(12px, 1.9vh, 16px);
+  height: clamp(12px, 1.9vh, 16px);
+  display: block;
+  pointer-events: none;
+}
+
+.machine__side .controls .btn__glyph {
+  fill: #a24a00;
+  stroke: #fff;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.5));
+}
+
+.machine__side .controls .btn__chev {
+  width: auto;
+  height: auto;
+  font-size: clamp(9px, 1.5vh, 13px);
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 0 #1c2080;
+  opacity: 0.9;
+}
+
+/* Capsula del valor dinamico (coste 100x y giros de AUTO). */
+.machine__side .controls .pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  font-family: var(--font);
+  font-size: clamp(8.5px, 1.15vh, 11px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  white-space: nowrap;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(40, 10, 70, 0.38);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.machine__side .controls .btn--feature.gbtn .pill {
+  color: #4f1220;
+  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(90, 30, 0, 0.22);
+}
+
+/* AUTO activo (aria-pressed): conserva el dorado del estado y su legibilidad. */
+.machine__side .controls .btn--auto[aria-pressed="true"].gbtn {
+  background: linear-gradient(180deg, #ffe887, #ffae3f 62%, #ec7f1f) padding-box,
+    var(--gbtn-gold-rim);
+  box-shadow:
+    0 5px 0 #96500a,
+    0 0 0 3px rgba(255, 242, 154, 0.28),
+    0 9px 18px rgba(235, 120, 25, 0.35),
+    inset 0 2px 0 rgba(255, 255, 255, 0.7);
+}
+
+.machine__side .controls .btn--auto[aria-pressed="true"].gbtn .btn__title,
+.machine__side .controls .btn--auto[aria-pressed="true"].gbtn .btn__chev {
+  color: #5d1631;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.machine__side .controls .btn--auto[aria-pressed="true"].gbtn .pill {
+  background: rgba(255, 255, 255, 0.45);
+  color: #5d1631;
+  border-color: rgba(120, 50, 0, 0.24);
+}
+
+/* --------------------------------------------------------------------------
+   g) Barrido de brillo opcional (decoracion pura)
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls .gbtn .shine {
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  width: 28%;
+  left: -40%;
+  z-index: 1;
+  transform: translateX(0) skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: sweep 3.4s infinite;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* El barrido se anima con `transform` (no con `left`): mismo recorrido, pero
+   el navegador lo compone en la GPU y no re-calcula el layout del boton. */
+@keyframes sweep {
+  0%, 60% { transform: translateX(0) skewX(-20deg); }
+  100% { transform: translateX(607%) skewX(-20deg); }
+}
+
+/* --------------------------------------------------------------------------
+   h) Pie del panel: mismo tamano, lectura mas limpia
+   -------------------------------------------------------------------------- */
+
+.machine__side .controls .statusbar {
+  color: rgba(255, 246, 253, 0.86);
+  font-weight: 600;
+}
+
+/* El identificador del motor no cabe entre 900 y 1400 px (Fredoka es mas
+   ancha que la monoespaciada anterior): se oculta antes de recortarse. */
+@media (min-width: 900px) and (max-width: 1400px) {
+  .machine__side .statusbar__item--right { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   i) Pantallas bajas y estrechas: los botones conservan su caja
+   Los tamanos maximos del diseno se recortan aqui para no empujar el panel
+   (el Bloque 3 reparte alturas exactas y no tiene holgura vertical).
+   -------------------------------------------------------------------------- */
+
+@media (max-height: 760px) {
+  .machine__side .controls .btn--spin.gbtn {
+    gap: 10px;
+    border-width: 4px;
+  }
+
+  .machine__side .controls .gbtn .btn__title { font-size: clamp(11px, 2.1vh, 17px); }
+}
+
+@media (max-width: 899px) {
+  .machine__side .controls .btn--spin.gbtn {
+    gap: 8px;
+    padding: 6px 12px;
+    border-width: 3px;
+  }
+
+  .machine__side .controls .btn--spin .btn__spin-label {
+    font-size: clamp(20px, 3.2vh, 28px);
+    letter-spacing: 0.06em;
+    -webkit-text-stroke-width: 1.5px;
+    text-shadow: 0 3px 0 #8f0f63, 0 6px 10px rgba(60, 0, 50, 0.4);
+  }
+
+  .machine__side .controls .btn__spin-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .machine__side .controls .btn--feature.gbtn .btn__title,
+  .machine__side .controls .btn--auto.gbtn .btn__title { font-size: clamp(11px, 1.9vh, 13px); }
+
+  .machine__side .controls .btn__glyph { width: 12px; height: 12px; }
+  .machine__side .controls .btn__chev { width: auto; height: auto; font-size: 9px; }
+
+  .machine__side .controls .pill { padding: 1px 8px; font-size: 8.5px; }
+
+  .machine__side .controls .btn--spin .spin-spark--a { font-size: 13px; }
+  .machine__side .controls .btn--spin .spin-spark--b { font-size: 11px; }
+  .machine__side .controls .btn--spin .spin-spark--c { display: none; }
+}
+
+@media (max-width: 520px) {
+  .machine__side .controls .balance__label { letter-spacing: 0.12em; }
+
+  .machine__side .controls__bet .bet-readout { padding: 1px 6px; }
+  .machine__side .controls__bet .bet-readout__label { letter-spacing: 0.12em; }
+
+  .machine__side .controls .gbtn { border-width: 2px; border-radius: 14px; }
+  .machine__side .controls .btn--spin.gbtn { border-width: 3px; border-radius: 999px; }
+  .machine__side .controls .btn--feature.gbtn,
+  .machine__side .controls .btn--auto.gbtn { border-radius: 16px; }
+}
+
+/* Accesibilidad: quien pide menos movimiento no recibe pulsos ni barridos. */
+@media (prefers-reduced-motion: reduce) {
+  .machine__side .controls .gbtn .shine,
+  .machine__side .controls .btn--spin,
+  .machine__side .controls .btn--spin .spin-spark { animation: none; }
+}
+
