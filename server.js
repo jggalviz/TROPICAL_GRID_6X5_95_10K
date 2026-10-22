@@ -7,8 +7,9 @@
  *  Vercel detecta `server.js` en la raiz del repositorio y despliega la app
  *  Express como UNA sola Vercel Function:
  *
- *    - public/**  -> CDN (HTML, CSS, JS)
- *    - resto      -> esta funcion (`/`, `/api/...`)
+ *    - public/src/** -> CDN (CSS/JS)
+ *    - `/`           -> esta funcion (HTML generado desde public/index.html)
+ *    - /api/**       -> esta funcion
  *
  *  En local NO se usa: `npm start` ejecuta `server/index.js`, que abre un
  *  puerto real con timeouts y apagado ordenado. Aqui solo se exporta la app,
@@ -30,7 +31,8 @@ let app;
 
 try {
   const { createApp } = require('./server/app');
-  app = createApp();
+  // En Vercel el CDN sirve public/src/**; la funcion solo atiende `/` y /api/*.
+  app = createApp({ staticDir: null });
 } catch (error) {
   const detail = error instanceof Error ? error.message : String(error);
   // eslint-disable-next-line no-console

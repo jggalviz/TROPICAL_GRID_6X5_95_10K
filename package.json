@@ -9,7 +9,11 @@
   },
   "scripts": {
     "start": "node server/index.js",
+    "prestart": "node scripts/build-index-html.js",
     "dev": "node --watch server/index.js",
+    "predev": "node scripts/build-index-html.js",
+    "build:index": "node scripts/build-index-html.js",
+    "vercel-build": "node scripts/build-index-html.js",
     "simulate": "node scripts/simulate.js",
     "simulate:validate": "node scripts/simulate.js --rounds=20000 --mode=base --crypto",
     "simulate:feature": "node scripts/simulate.js --rounds=20000 --mode=feature",

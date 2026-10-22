@@ -4,7 +4,7 @@
 
 const { once } = require('node:events');
 
-const { createApp } = require('../../server/app');
+const { createApp, PUBLIC_DIR } = require('../../server/app');
 const { SlidingWindowRateLimiter } = require('../../server/middleware/rateLimit');
 const { issueToken } = require('../../server/auth/sessionToken');
 const store = require('../../server/db');
@@ -13,6 +13,7 @@ const store = require('../../server/db');
  * Levanta la app en un puerto libre.
  * @param {object} [options]
  * @param {number} [options.rateLimitMaxRequests]  limite por jugador
+ * @param {string|null} [options.staticDir]  `null` simula Vercel (sin public/)
  * @returns {Promise<{ baseUrl: string, close: () => Promise<void>, limiter: object }>}
  */
 async function startServer(options = {}) {
@@ -20,7 +21,11 @@ async function startServer(options = {}) {
     windowMs: 1000,
     maxRequests: options.rateLimitMaxRequests || 1000
   });
-  const app = createApp({ rateLimit: limiter, logRequests: false });
+  const app = createApp({
+    rateLimit: limiter,
+    logRequests: false,
+    staticDir: options.staticDir === undefined ? PUBLIC_DIR : options.staticDir
+  });
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const { port } = server.address();

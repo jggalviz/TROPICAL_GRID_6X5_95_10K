@@ -46,7 +46,7 @@ test('vercel.json fija el preset Express y no declara builds manuales', () => {
   assert.equal(config.builds, undefined, 'El preset Express resuelve el entrypoint; no uses "builds"');
 });
 
-test('la funcion serverless excluye public/ y .env del bundle', () => {
+test('la funcion serverless excluye public/ y .env (el HTML va en server/generated)', () => {
   const patterns = readExcludePatterns();
 
   for (const expected of ['public', '.env', '.env.*']) {
@@ -55,6 +55,13 @@ test('la funcion serverless excluye public/ y .env del bundle', () => {
       `Falta "${expected}" en functions["server.js"].excludeFiles (ver docs/DEPLOY_VERCEL.md §5.1)`
     );
   }
+
+  const config = readVercelConfig();
+  assert.equal(
+    config.functions['server.js'].includeFiles,
+    undefined,
+    'No uses includeFiles: el HTML se incrusta con `npm run build:index`'
+  );
 });
 
 test('server.js importa express literalmente (requisito de @vercel/express)', () => {
@@ -63,15 +70,47 @@ test('server.js importa express literalmente (requisito de @vercel/express)', ()
   assert.match(read('server.js'), /require\(\s*['"]express['"]\s*\)/);
 });
 
-test('el backend no traza public/ con res.sendFile', () => {
+test('Vercel sirve / desde el HTML generado y no traza public/', () => {
   const appCode = stripComments(read('server/app.js'));
 
+  assert.doesNotMatch(appCode, /res\.sendFile\s*\(/);
+  assert.match(
+    appCode,
+    /app\.get\(\s*['"]\/['"],[\s\S]*?res\.type\(\s*['"]html['"]\s*\)\.send\(\s*INDEX_HTML\s*\)/,
+    'GET / debe responder el HTML generado (server/generated/indexHtml.js)'
+  );
+  assert.match(appCode, /express\.static\(\s*staticDir\s*,/);
   assert.doesNotMatch(
     appCode,
-    /res\.sendFile\s*\(/,
-    'Usa express.static(..., { index: "index.html" }); sendFile vuelve a meter public/ en la funcion'
+    /express\.static\(\s*PUBLIC_DIR/,
+    'Usa staticDir (parametro): en Vercel es null y NFT no debe trazar public/'
   );
-  assert.match(appCode, /express\.static\(\s*PUBLIC_DIR/);
+  assert.match(
+    appCode,
+    /express\.static\(\s*staticDir,\s*\{[\s\S]*?index:\s*['"]index\.html['"]/,
+    'express.static debe declarar index: "index.html" en local'
+  );
+
+  assert.match(
+    read('server.js'),
+    /createApp\(\s*\{\s*staticDir:\s*null\s*\}\s*\)/,
+    'En Vercel la funcion no debe servir public/'
+  );
+  assert.match(
+    read('server/index.js'),
+    /createApp\(\s*\{\s*staticDir:\s*PUBLIC_DIR\s*\}\s*\)/,
+    'En local `npm start` si debe servir public/'
+  );
+});
+
+test('server/generated/indexHtml.js refleja public/index.html', () => {
+  const { INDEX_HTML } = require('../server/generated/indexHtml');
+
+  assert.equal(
+    INDEX_HTML,
+    read('public/index.html'),
+    'Ejecuta `npm run build:index` despues de editar public/index.html'
+  );
 });
 
 test('el frontend vive en public/ y no vuelve a la raiz', () => {

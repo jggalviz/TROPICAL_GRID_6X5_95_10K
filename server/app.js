@@ -8,8 +8,10 @@
  *  puertos.
  *
  *  Superficie publica:
- *    - Estaticos: public/  (index.html, src/, assets/)
- *      En Vercel los publica el CDN; en local los sirve este mismo proceso.
+ *    - Indice:    `/` sirve `server/generated/indexHtml.js`, generado desde
+ *                 `public/index.html` en build. No depende del routing del CDN.
+ *    - Estaticos: public/ completo en local; en Vercel el CDN publica
+ *                 `public/src/**` y la funcion no los sirve.
  *    - API:       /api/*  (JSON, sin cache)
  *
  *  No se sirve NADA del backend: `server/`, `scripts/`, `sql/` y `.env`
@@ -26,6 +28,7 @@ const cors = require('cors');
 const compression = require('compression');
 
 const config = require('./config');
+const { INDEX_HTML } = require('./generated/indexHtml');
 const { ApiError } = require('./errors');
 const { createGameRoutes } = require('./routes/game');
 const { createSessionRoutes } = require('./routes/session');
@@ -35,12 +38,22 @@ const {
 } = require('./middleware/rateLimit');
 
 const ROOT_DIR = path.join(__dirname, '..');
-/* Unico arbol estatico permitido: en Vercel `public/**` se publica en el CDN. */
+/* Unico arbol estatico permitido: el CDN publica `public/**`. */
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 
+/**
+ * Crea la app Express.
+ *
+ * @param {object} [options]
+ * @param {object} [options.rateLimit]     limitador compartido (tests)
+ * @param {boolean} [options.logRequests]  log de acceso por peticion
+ * @param {string|null} [options.staticDir] arbol estatico local. En Vercel es
+ *   `null`: el CDN sirve `public/src/**` y la funcion no debe trazarlo.
+ */
 function createApp(options = {}) {
   const app = express();
   const rateLimit = options.rateLimit || new SlidingWindowRateLimiter();
+  const staticDir = options.staticDir || null;
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
@@ -121,27 +134,36 @@ function createApp(options = {}) {
   app.use('/api', createSessionRoutes({ rateLimit }));
   app.use('/api', createGameRoutes({ rateLimit }));
 
-  /* --- Front-end (solo cliente visual) ---
-     Un unico arbol estatico: `public/`. En Vercel ese directorio lo publica el
-     CDN antes de llegar a esta funcion; en local lo sirve este middleware.
+  /* --- Indice del juego ---
+     Se sirve desde `server/generated/indexHtml.js`, que `npm run build:index`
+     genera a partir de `public/index.html`. Asi `/` funciona aunque el CDN no
+     resuelva el directorio raiz y la funcion no necesita `public/` en Vercel
+     (donde `staticDir` es `null`). */
+  app.get('/', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('html').send(INDEX_HTML);
+  });
 
-     No hay ruta explicita para `/`: `index: 'index.html'` hace que el propio
-     `express.static` responda `/` con `public/index.html` (y `setHeaders` le
-     aplica `no-cache`). Evitamos `res.sendFile(...)` porque NFT lo traza como
-     asset y duplicaria `public/` dentro del bundle serverless. */
-  app.use(
-    express.static(PUBLIC_DIR, {
-      index: 'index.html',
-      dotfiles: 'ignore',
-      maxAge: config.isProduction ? '1h' : 0,
-      setHeaders(res, filePath) {
-        // El HTML se revalida siempre; JS/CSS mantienen cache corta.
-        if (path.extname(filePath).toLowerCase() === '.html') {
-          res.setHeader('Cache-Control', 'no-cache');
+  /* --- Front-end local (solo cliente visual) ---
+     En local `staticDir` es `public/`: sirve index.html y src/**. En Vercel es
+     `null`; el CDN publica `public/src/**` y esta funcion solo atiende `/` y
+     `/api/*`. Evitamos `res.sendFile(...)`: no hace falta y complica el
+     trazado de assets de NFT. */
+  if (staticDir) {
+    app.use(
+      express.static(staticDir, {
+        index: 'index.html',
+        dotfiles: 'ignore',
+        maxAge: config.isProduction ? '1h' : 0,
+        setHeaders(res, filePath) {
+          // El HTML se revalida siempre; JS/CSS mantienen cache corta.
+          if (path.extname(filePath).toLowerCase() === '.html') {
+            res.setHeader('Cache-Control', 'no-cache');
+          }
         }
-      }
-    })
-  );
+      })
+    );
+  }
 
   /* --- 404 --- */
   app.use((req, res) => {

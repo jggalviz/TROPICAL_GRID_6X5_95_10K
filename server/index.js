@@ -13,7 +13,7 @@
 const config = require('./config');
 const engine = require('./engine/gridEngine');
 const store = require('./db');
-const { createApp } = require('./app');
+const { createApp, PUBLIC_DIR } = require('./app');
 
 function banner(port) {
   const rtp = (engine.CERTIFIED_RTP.base * 100).toFixed(2);
@@ -48,7 +48,7 @@ function bootstrap() {
     }
   }
 
-  const app = createApp();
+  const app = createApp({ staticDir: PUBLIC_DIR });
   const server = app.listen(config.port, () => {
     // eslint-disable-next-line no-console
     console.log(banner(config.port));

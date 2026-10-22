@@ -26,14 +26,16 @@ soportado es «una sola función que exporta la app» + estáticos en `public/**
 .
 ├── server.js            # entry que detecta Vercel: exporta la app Express
 ├── vercel.json          # framework "express" + cabeceras de los estáticos
-├── public/              # ÚNICO árbol estático -> lo sirve el CDN
-│   ├── index.html
+├── public/              # fuente del frontend; el CDN publica src/** e index.html
+│   ├── index.html       # fuente única del HTML (genera server/generated/indexHtml.js)
 │   └── src/
 │       ├── css/style.css
 │       └── js/*.js
 ├── server/              # backend (NO se publica como estático)
+│   ├── generated/
+│   │   └── indexHtml.js # generado desde public/index.html (npm run build:index)
 │   ├── index.js         # servidor local (puerto, timeouts, SIGTERM)
-│   ├── app.js           # createApp(): API + estáticos
+│   ├── app.js           # createApp(): API + / + estáticos locales
 │   ├── routes/ …
 │   └── services/ …
 ├── scripts/  sql/  test/  docs/
@@ -41,10 +43,12 @@ soportado es «una sola función que exporta la app» + estáticos en `public/**
 ```
 
 - **Local:** `npm start` → `server/index.js` → sirve `public/` y `/api/*` en
-  `http://localhost:3000`. Nada cambia para el desarrollador.
-- **Vercel:** `public/**` se publica en el CDN; todo lo demás entra a la función
-  `server.js` (la misma app Express). El bundle de la función **excluye**
-  `public/` y `.env` (ver §5.1).
+  `http://localhost:3000`. Nada cambia para el desarrollador; `prestart`
+  regenera `server/generated/indexHtml.js`.
+- **Vercel:** el CDN publica `public/src/**` y `/index.html`; `/` y `/api/*` los
+  atiende la función `server.js`. El bundle de la función **excluye** `public/`
+  y `.env` (ver §5.1); el HTML de `/` viaja incrustado en
+  `server/generated/indexHtml.js`.
 
 > `server.js` debe contener `require('express')` de forma literal: el builder
 > oficial `@vercel/express` lo inspecciona para detectar el entrypoint. Si algún
@@ -116,7 +120,8 @@ y el detalle completo aparece en **Runtime Logs**.
 
 | Petición | Destino |
 | --- | --- |
-| `/` , `/index.html` | CDN → `public/index.html` |
+| `/` | Función Express → HTML generado (`server/generated/indexHtml.js`) |
+| `/index.html` | CDN → `public/index.html` |
 | `/src/css/style.css`, `/src/js/*.js` | CDN → `public/src/**` |
 | `/api/health` | Función Express |
 | `/api/game` | Función Express |
@@ -126,10 +131,11 @@ y el detalle completo aparece en **Runtime Logs**.
 | `/api/demo/session` | Función Express |
 | Cualquier otra ruta | Función Express → `404 NOT_FOUND` (JSON) |
 
-No hay rewrites: Vercel entrega `public/**` desde el CDN y el resto a la función,
-por lo que `req.url` conserva la ruta original (`/api/spin`) y Express enruta
-igual que en local. El preset declara la ruta `filesystem` antes del catch-all
-`/(.*)`, así que `public/index.html` tiene prioridad sobre la función.
+No hay rewrites: el CDN entrega los archivos que existen en `public/**` y el
+resto va a la función, por lo que `req.url` conserva la ruta original
+(`/api/spin`) y Express enruta igual que en local. `/` se atiende en la función
+porque el CDN no resuelve el directorio raíz; el HTML se genera en build desde
+`public/index.html` (una sola fuente de verdad).
 
 ### 5.1 Higiene del bundle serverless (`functions.excludeFiles`)
 
@@ -143,19 +149,28 @@ igual que en local. El preset declara la ruta `filesystem` antes del catch-all
 }
 ```
 
-**Por qué.** `@vercel/nft` analiza el grafo de `server.js` y, al encontrar
-`express.static(PUBLIC_DIR)`, marca todo `public/` como *asset*; además
-`dotenv` arrastra `.env`. Sin exclusión, `@vercel/node` mete el frontend en la
-función y lo recompila de ESM a CommonJS, con logs como:
+**Por qué.** `@vercel/nft` analiza el grafo de `server.js`; además `dotenv`
+arrastra `.env`. Si `createApp` registrara `express.static` con una ruta
+constante (`PUBLIC_DIR`), NFT marcaría todo `public/` como *asset* y
+`@vercel/node` metería el frontend en la función, recompilándolo de ESM a
+CommonJS, con logs como:
 
 ```
 Compiling "main.js" from ESM to CommonJS...
 Compiling "format.js" from ESM to CommonJS...
 ```
 
-Eso duplica los estáticos (CDN + función), engorda el bundle y puede romper el
-build si algún archivo del cliente no es compatible con Babel. La exclusión
-**no** afecta al CDN: `public/**` se sigue publicando con el build
+Por eso el reparto es explícito:
+
+- `server.js` llama `createApp({ staticDir: null })`: en Vercel no hay
+  middleware estático; el CDN sirve `public/src/**` e `/index.html`.
+- `server/index.js` llama `createApp({ staticDir: PUBLIC_DIR })`: en local sí
+  se sirve `public/`.
+- `GET /` responde `server/generated/indexHtml.js`, un módulo CommonJS generado
+  por `npm run build:index` (`vercel-build` lo ejecuta antes del trazado).
+- `excludeFiles` excluye `public` igualmente, como cinturón de seguridad.
+
+La exclusión **no** afecta al CDN: `public/**` se sigue publicando con el build
 `@vercel/static` y aparece en `.vercel/output/static/`.
 
 **Detalles que no conviene cambiar:**
@@ -165,16 +180,20 @@ build si algún archivo del cliente no es compatible con Babel. La exclusión
 - Se excluye la **carpeta** `public`, no `public/**`: NFT resuelve cada patrón
   como ruta y en Windows los globs `**` sobre separadores `\` no matchean. Al
   excluir la carpeta, NFT ni siquiera expande su contenido.
-- Por eso `server/app.js` no debe volver a usar `res.sendFile(...)` sobre
-  `public/`: NFT lo traza como asset y vuelve a meter `index.html` en la
-  función. El índice se sirve con `express.static(..., { index: 'index.html' })`;
-  en Vercel lo entrega el CDN antes de llegar a la función.
+- `server/app.js` debe usar `express.static(staticDir)` (parámetro), nunca
+  `express.static(PUBLIC_DIR)`, y no debe usar `res.sendFile(...)`: NFT volvería
+  a trazar `public/` como asset.
+- `server/generated/indexHtml.js` no se edita a mano: `public/index.html` es la
+  fuente. Tras cambiarlo, ejecuta `npm run build:index`; el test de despliegue
+  falla si quedan desincronizados.
 
 Verificación rápida tras `vercel build`:
 
 ```bash
 vercel build
 # El log NO debe contener: Compiling "<archivo>" from ESM to CommonJS...
+ls .vercel/output/functions/index.func/server/generated/indexHtml.js
+# .vercel/output/functions/index.func/public/ NO debe existir
 ls .vercel/output/functions/index.func   # sin public/ ni .env
 ls .vercel/output/static                 # index.html + src/**
 ```
@@ -184,7 +203,7 @@ ls .vercel/output/static                 # index.html + src/**
 ```bash
 BASE=https://<proyecto>.vercel.app
 
-# 1) Frontend (debe devolver 200 y el HTML del juego)
+# 1) Frontend (funcion: HTML generado; 200 + cache-control: no-cache)
 curl -sI "$BASE/" | head -n 1
 
 # 2) Estático
@@ -205,9 +224,21 @@ curl -s -X POST "$BASE/api/spin" \
   | jq '{demo, replayed, balance, totalWinCents}'
 ```
 
-Respuestas esperadas: `200` en `/` y en `/src/js/main.js`, `status: "UP"` en
-`/api/health`, `enabled: true` en `game.demo` y `demo: true` con
-`balance.cents` en la tirada.
+Respuestas esperadas: `200` en `/` (HTML con `Cache-Control: no-cache`) y en
+`/src/js/main.js`, `status: "UP"` en `/api/health`, `enabled: true` en
+`game.demo` y `demo: true` con `balance.cents` en la tirada.
+
+> **Deployment Protection.** Si el proyecto tiene *Vercel Authentication*
+> activada, las URLs de despliegue responden `401` a `curl` o a un navegador
+> sin sesión. Para verificar sin cambiar la configuración:
+>
+> ```bash
+> vercel curl '/' --deployment "$BASE" --yes
+> vercel curl '/api/health' --deployment "$BASE" --yes
+> ```
+>
+> Para que la URL sea pública, desactiva la protección en *Settings →
+> Deployment Protection* (o usa un dominio/alias asignado al proyecto).
 
 ## 7. Limitaciones del entorno serverless
 
@@ -229,13 +260,14 @@ pública, el comportamiento actual es aceptable.
 
 | Síntoma | Causa / solución |
 | --- | --- |
-| Sigue el 404 en `/` | `Root Directory` u `Output Directory` mal en *Project Settings*; bórralos y redeploy |
+| Sigue el 404 en `/` | El bundle no incluye `server/generated/indexHtml.js` o hay un `Root Directory`/`Output Directory` heredado; revisa el build y *Project Settings* |
+| `GET /` devuelve HTML viejo | `server/generated/indexHtml.js` desactualizado: `npm run build:index` y redeploy (Vercel ejecuta `vercel-build`) |
 | `503 CONFIG_INVALID` | Faltan `SESSION_SECRET` / Supabase; revisa Runtime Logs y redeploy tras añadir variables |
 | `500` en `/api/*` | Credenciales de Supabase inválidas o `sql/schema.sql` sin ejecutar |
 | `403 CORS_FORBIDDEN` | Frontend en otro dominio: añádelo a `ALLOWED_ORIGINS` |
 | `401 TOKEN_MISSING` | Usa `POST /api/demo/session` (modo demo) o el token del IdP |
 | `403 DEMO_DISABLED` | `DEMO_MODE_ENABLED=false` en ese entorno |
-| Logs `Compiling "main.js" from ESM to CommonJS...` | `functions["server.js"].excludeFiles` no incluye `public`; revisa `vercel.json` (§5.1) |
+| Logs `Compiling "main.js" from ESM to CommonJS...` | La función volvió a trazar `public/`: usa `createApp({ staticDir: null })` en `server.js`, `express.static(staticDir)` y `excludeFiles` con `public` (§5.1) |
 | `.env` dentro de `.vercel/output/functions/…` | Igual: añade `.env` y `.env.*` a `excludeFiles` (§5.1) |
 
 ## 9. Alternativa: servidor propio

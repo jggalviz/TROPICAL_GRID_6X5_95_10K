@@ -1,0 +1,8 @@
+# Archivos que nunca deben subirse al build de Vercel.
+# (El bundle de la funcion ademas los excluye via vercel.json > functions.excludeFiles)
+.env
+.env.*
+.vercel
+.sim
+.diag*
+*.log
