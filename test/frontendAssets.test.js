@@ -100,3 +100,43 @@ test('la maquina completa cabe en el viewport sin scroll vertical', () => {
     'La cuadricula 6x5 debe conservar su proporcion'
   );
 });
+
+test('el escalado del tablero y las casillas se adapta al alto disponible', () => {
+  const css = read(STYLE_PATH);
+
+  assert.match(
+    css,
+    /\.stage\s*\{[^}]*min-height:\s*0;[^}]*\}/,
+    'El escenario debe poder encogerse para no empujar contenido fuera'
+  );
+  assert.match(
+    css,
+    /\.grid\s*\{[^}]*min-width:\s*0;[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*6\s*\/\s*5;/,
+    'La cuadricula debe poder encogerse y conservar su proporcion'
+  );
+  assert.match(
+    css,
+    /\.tile\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*min-width:\s*0;[^}]*min-height:\s*0;[^}]*\}/,
+    'Cada casilla debe llenar su celda sin desbordar'
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 760px\)[\s\S]*?\.board\s*\{[^}]*flex:\s*0 1 auto;[^}]*min-height:\s*0;/,
+    'En movil el tablero abraza la cuadricula y puede encogerse'
+  );
+  assert.match(
+    css,
+    /width:\s*min\(100%,\s*calc\(\(100dvh - var\(--board-chrome\)\)\s*\*\s*6\s*\/\s*5\)\)/,
+    'El ancho del tablero debe combinar el ancho y el alto disponibles'
+  );
+  assert.match(
+    css,
+    /@media \(max-height: 660px\)\s*\{\s*\.machine__hero\s*\{\s*display:\s*none;\s*\}/,
+    'En alturas cortas el logo desaparece para ceder alto al tablero'
+  );
+  assert.match(
+    css,
+    /\.controls\s*\{[^}]*flex-shrink:\s*1;[^}]*min-height:\s*0;/,
+    'Los controles deben poder comprimirse dentro de la maquina'
+  );
+});
