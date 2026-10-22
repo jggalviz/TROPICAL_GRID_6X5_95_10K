@@ -8,7 +8,8 @@
  *  puertos.
  *
  *  Superficie publica:
- *    - Estaticos: /  (index.html), /src (JS+CSS), /assets
+ *    - Estaticos: public/  (index.html, src/, assets/)
+ *      En Vercel los publica el CDN; en local los sirve este mismo proceso.
  *    - API:       /api/*  (JSON, sin cache)
  *
  *  No se sirve NADA del backend: `server/`, `scripts/`, `sql/` y `.env`
@@ -34,6 +35,8 @@ const {
 } = require('./middleware/rateLimit');
 
 const ROOT_DIR = path.join(__dirname, '..');
+/* Unico arbol estatico permitido: en Vercel `public/**` se publica en el CDN. */
+const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 
 function createApp(options = {}) {
   const app = express();
@@ -65,21 +68,33 @@ function createApp(options = {}) {
     })
   );
 
-  /* --- CORS restringido a los origenes configurados --- */
-  app.use(
+  /* --- CORS restringido: origenes configurados + mismo origen --- */
+  const corsBase = {
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+    exposedHeaders: ['X-Request-Id', 'X-RateLimit-Remaining', 'Retry-After'],
+    credentials: false,
+    maxAge: 600
+  };
+
+  app.use((req, res, next) =>
     cors({
+      ...corsBase,
       origin(origin, callback) {
         // Sin Origin = mismo origen / peticiones servidor-a-servidor.
         if (!origin) return callback(null, true);
         if (config.allowedOrigins.includes(origin)) return callback(null, true);
+        // Mismo host que sirve la app (Vercel y previews, dominio propio, LAN):
+        // el navegador no aplica CORS en mismo origen, asi que esto no amplia
+        // la superficie y evita depender de ALLOWED_ORIGINS en cada despliegue.
+        try {
+          if (new URL(origin).host === req.get('host')) return callback(null, true);
+        } catch {
+          /* Origin malformado: se rechaza abajo. */
+        }
         return callback(ApiError.forbidden('CORS_FORBIDDEN', 'Origen no permitido.'));
-      },
-      methods: ['GET', 'POST', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
-      exposedHeaders: ['X-Request-Id', 'X-RateLimit-Remaining', 'Retry-After'],
-      credentials: false,
-      maxAge: 600
-    })
+      }
+    })(req, res, next)
   );
 
   app.use(compression());
@@ -106,25 +121,24 @@ function createApp(options = {}) {
   app.use('/api', createSessionRoutes({ rateLimit }));
   app.use('/api', createGameRoutes({ rateLimit }));
 
-  /* --- Front-end (solo cliente visual) --- */
+  /* --- Front-end (solo cliente visual) ---
+     Un unico arbol estatico: `public/`. En Vercel, ese directorio lo sirve el
+     CDN y no llega a esta funcion; en local lo sirve este middleware. */
   app.get('/', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
-    res.sendFile(path.join(ROOT_DIR, 'index.html'));
+    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
   });
   app.use(
-    '/src',
-    express.static(path.join(ROOT_DIR, 'src'), {
+    express.static(PUBLIC_DIR, {
       index: false,
       dotfiles: 'ignore',
-      maxAge: config.isProduction ? '1h' : 0
-    })
-  );
-  app.use(
-    '/assets',
-    express.static(path.join(ROOT_DIR, 'assets'), {
-      index: false,
-      dotfiles: 'ignore',
-      maxAge: config.isProduction ? '24h' : 0
+      maxAge: config.isProduction ? '1h' : 0,
+      setHeaders(res, filePath) {
+        // El HTML se revalida siempre; JS/CSS mantienen cache corta.
+        if (path.extname(filePath).toLowerCase() === '.html') {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      }
     })
   );
 
@@ -171,4 +185,4 @@ function createApp(options = {}) {
   return app;
 }
 
-module.exports = { createApp, createRateLimitMiddleware, ROOT_DIR };
+module.exports = { createApp, createRateLimitMiddleware, ROOT_DIR, PUBLIC_DIR };

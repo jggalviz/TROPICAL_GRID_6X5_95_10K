@@ -329,7 +329,7 @@ reproducción de rondas descrita en §12, no con pruebas unitarias.
 | Límite de exposición | §9, `MAX_EXPOSURE_MULTIPLIER` |
 | Registro de rondas y movimientos | `server/db` (ledger de doble entrada) + bloque `audit` |
 | No repudio de la ronda | `serverSeedHash`, `rngHash`, `roundRef` |
-| Lógica en servidor, cliente solo visual | `server/services/gameService.js` vs `src/js/*` |
+| Lógica en servidor, cliente solo visual | `server/services/gameService.js` vs `public/src/js/*` |
 | Control de acceso y límites | `middleware/auth.js`, `middleware/rateLimit.js` |
 | Idempotencia de la transacción | `roundRef` único por jugador |
 

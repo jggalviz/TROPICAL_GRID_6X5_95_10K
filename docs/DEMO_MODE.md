@@ -64,9 +64,18 @@ Ver `.env.example` → bloque *Fichas de Prueba*: `DEMO_MODE_ENABLED`,
 
 | Capa | Archivo |
 | --- | --- |
-| Botón y estilos | `index.html` (`#btn-demo`), `src/css/style.css` (`.btn--demo`, `body.is-demo`) |
-| Cliente | `src/js/main.js`, `src/js/gameClient.js` (`startDemoMode`), `src/js/sessionClient.js`, `src/js/apiClient.js`, `src/js/uiManager.js` (`setDemoMode`, `showAuthGate`) |
+| Botón y estilos | `public/index.html` (`#btn-demo`), `public/src/css/style.css` (`.btn--demo`, `body.is-demo`) |
+| Cliente | `public/src/js/main.js`, `public/src/js/gameClient.js` (`startDemoMode`), `public/src/js/sessionClient.js`, `public/src/js/apiClient.js`, `public/src/js/uiManager.js` (`setDemoMode`, `showAuthGate`) |
 | Sesión demo | `server/routes/session.js`, `server/auth/sessionToken.js`, `server/middleware/auth.js` (`resolveCaller`) |
 | Cartera virtual | `server/services/demoWallet.js`, `server/services/gameService.js` (`playDemoRound`) |
 | Ruta de juego | `server/routes/game.js`, `server/config.js`, `server/middleware/rateLimit.js` |
 | Tests | `test/demoMode.test.js` |
+
+## En Vercel
+
+El despliegue (preset Express, `public/**` en el CDN y `server.js` como entry)
+está descrito en [`DEPLOY_VERCEL.md`](./DEPLOY_VERCEL.md). Ten en cuenta que la
+cartera demo vive en RAM por instancia: si Vercel atiende la petición con otra
+instancia, se recrea con el saldo inicial (1.000,00) en lugar de fallar. Para
+una demo pública es aceptable; para continuidad estricta entre instancias hace
+falta un almacén compartido con TTL.
