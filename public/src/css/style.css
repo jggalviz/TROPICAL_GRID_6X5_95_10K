@@ -4641,3 +4641,828 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .controls .btn--spin .spin-spark { animation: none; }
 }
 
+
+/* ==========================================================================
+   CONSOLA MÓVIL · barra de control horizontal anclada al pie (≤899px)
+   --------------------------------------------------------------------------
+   Rediseño de la vista estrecha/vertical: la máquina pasa a un flujo de tres
+   zonas (cabecera compacta · tablero maximizado · consola inferior) y el Bloque
+   3 se convierte en una consola arcade horizontal.
+
+   Todo se resuelve con CSS sobre el DOM existente: no se añade, quita ni
+   renombra un solo nodo, id o handler. Los contenedores del Bloque 3
+   (`.controls__wallet`, `.controls__bet`, `.controls__actions`) pasan a
+   `display: contents` para que sus hijos entren en la rejilla de la consola y
+   cada botón se coloque en su celda (izquierda · SPIN central · derecha).
+
+   Orden visual de la consola:
+     fila 1 · SALDO (marco)      [ SPIN ]      APUESTA (marco)   MAX
+     fila 2 · MÁS   AUTO         [ GIRAR ]     −                 +
+     fila 3 · estado del motor
+   ========================================================================== */
+
+@media (max-width: 899px) {
+  /* ------------------------------------------------------------------------
+     1) Reparto vertical: cabecera (logo + HUD) · tablero · consola
+     La fila del tablero es la única flexible: absorbe todo el alto sobrante.
+     ------------------------------------------------------------------------ */
+  .machine {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "hero  hud"
+      "table table"
+      "console console";
+    align-content: stretch;
+    align-items: stretch;
+    justify-content: stretch;
+    column-gap: clamp(5px, 1.6vw, 9px);
+    row-gap: clamp(5px, 1.5dvh, 12px);
+    /* El aire lateral ya lo pone `.app`: aqui no se resta ancho al tablero. */
+    padding: 0;
+    /* Alto de la franja superior: escala con el viewport para no robarle
+       espacio al tablero en pantallas cortas y crecer en las altas. */
+    --m-head-h: clamp(70px, 16.5dvh, 152px);
+    /* Chrome real del tablero (padding 7+7 + filo 2+2): así la fórmula de
+       `width` no regala aire de más cuando el alto es el recurso escaso. */
+    --board-overhead: 20px;
+  }
+
+  /* El envoltorio de los Bloques 1-3 desaparece como caja: sus tres tarjetas
+     pasan a ser hijas directas de la rejilla de `.machine`. */
+  .machine__side { display: contents; }
+
+  /* ------------------------------------------------------------------------
+     2) Cabecera compacta · logo animado a la izquierda, HUD de partida al lado
+     ------------------------------------------------------------------------ */
+  .machine__side .machine__hero {
+    grid-area: hero;
+    width: clamp(100px, 31vw, 158px);
+    height: var(--m-head-h);
+    min-height: 0;
+    flex: 0 0 auto;
+    align-self: stretch;
+    justify-self: stretch;
+    padding: 2px;
+    overflow: hidden;
+    /* El halo de azúcar se queda dentro de la tarjeta: en móvil no hay aire
+       entre el logo y el HUD como para dejarlo respirar fuera. */
+    isolation: isolate;
+  }
+
+  .machine__side .machine__hero::before {
+    width: 120%;
+    max-width: none;
+    aspect-ratio: 1.4 / 1;
+    opacity: 0.45;
+    filter: blur(14px);
+  }
+
+  /* El logo conserva su animación, pero se encierra en la tarjeta: la altura
+     útil la marca `--m-head-h`, no el 112% de la vista de dos columnas. */
+  .machine__side .machine__logo {
+    width: 100%;
+    height: 92%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    object-fit: contain;
+    object-position: center;
+    transform-origin: 50% 60%;
+    animation: pana-logo-sheen 6.4s ease-in-out infinite;
+  }
+
+  .machine__side .machine__spark {
+    font-size: clamp(13px, 4vw, 20px);
+    top: 12%;
+  }
+
+  .machine__side .machine__spark--left { left: 4%; }
+  .machine__side .machine__spark--right { right: 4%; }
+
+  /* HUD en una sola fila de tres lecturas, a la derecha del logo. */
+  .machine__side .hud {
+    grid-area: hud;
+    /* El alto lo marca el contenido (celdas), no la franja del logo: así el
+       panel no se estira en pantallas altas y se centra junto a la marca. */
+    height: auto;
+    align-self: center;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.22fr) minmax(0, 1fr);
+    gap: clamp(4px, 1vw, 7px);
+    padding: clamp(5px, 1.2vw, 8px);
+  }
+
+  .machine__side .hud__cell {
+    justify-content: center;
+    gap: 1px;
+    padding: 3px 4px;
+    border-radius: 11px;
+  }
+
+  .machine__side .hud__label {
+    font-size: clamp(7px, 1.85vw, 8.5px);
+    letter-spacing: 0.05em;
+  }
+
+  .machine__side .hud__value,
+  .machine__side .hud__cell--win .hud__value {
+    font-size: clamp(14px, 4.2vw, 22px);
+    line-height: 1;
+  }
+
+  /* ------------------------------------------------------------------------
+     3) Tablero: única zona flexible, siempre cuadrado y sin scroll
+     ------------------------------------------------------------------------ */
+  .machine__table {
+    grid-area: table;
+    min-height: 0;
+    container-type: size;
+  }
+
+  .machine__table .board {
+    width: min(100%, calc((100cqh - var(--board-overhead)) * 6 / 5));
+    height: auto;
+    margin-inline: auto;
+    /* 7 px por lado + 2 px de filo = 18 px de chrome, dentro del presupuesto
+       de `--board-overhead`: la cuadricula nunca empuja el layout. */
+    padding: 7px;
+    border-radius: clamp(18px, 5vw, 26px);
+  }
+
+  .machine__table .grid { gap: clamp(3px, 0.9vw, 6px); }
+  .machine__table .tile { border-radius: clamp(7px, 2vw, 11px); }
+}
+
+/* --------------------------------------------------------------------------
+   4) La consola · chasis dorado + rejilla de seis celdas
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .machine__side .controls {
+    grid-area: console;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: minmax(42px, auto) minmax(66px, auto) auto;
+    grid-template-areas:
+      "wallet wallet spin spin bet  max"
+      "fever  auto   spin spin down up"
+      "status status status status status status";
+    align-items: stretch;
+    align-content: stretch;
+    gap: clamp(5px, 1.4vw, 8px);
+    padding: clamp(8px, 2.2vw, 11px) clamp(7px, 2vw, 10px) clamp(5px, 1.6vw, 8px);
+    /* Filo glaseado + cuerpo de oro macizo (mismo idioma que las tarjetas,
+       pero en clave dorada para separar la consola del resto de la máquina). */
+    border: 2px solid transparent;
+    border-radius: clamp(18px, 5vw, 24px);
+    background:
+      radial-gradient(120% 96% at 50% -34%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 64%) padding-box,
+      radial-gradient(90% 60% at 12% 118%, rgba(255, 255, 255, 0.34), transparent 60%) padding-box,
+      linear-gradient(180deg, #ffe9a6 0%, #ffc94f 26%, #f39a24 62%, #c9650d 100%) padding-box,
+      linear-gradient(160deg, #fff8d6 0%, #ffd25c 46%, #b25c05 100%) border-box;
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.3),
+      0 10px 22px -6px rgba(92, 24, 10, 0.45),
+      0 18px 34px -14px rgba(60, 10, 40, 0.42),
+      inset 0 2px 0 rgba(255, 255, 255, 0.8),
+      inset 0 -10px 18px rgba(150, 60, 0, 0.35);
+    overflow: hidden;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  /* Bisel interior extruido: un hilo de luz + una sombra de caramelo. */
+  .machine__side .controls::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: max(12px, calc(clamp(18px, 5vw, 24px) - 4px));
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    box-shadow:
+      0 1px 0 rgba(140, 66, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7),
+      inset 0 -3px 6px rgba(150, 62, 0, 0.28);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Los tres contenedores del Bloque 3 ceden sus hijos a la rejilla. */
+  .machine__side .controls__wallet,
+  .machine__side .controls__bet,
+  .machine__side .controls__actions { display: contents; }
+
+  .machine__side .controls .gbtn,
+  .machine__side .controls .balance,
+  .machine__side .controls .bet-readout { z-index: 1; }
+}
+
+/* --------------------------------------------------------------------------
+   5) Marcos de lectura · SALDO (izquierda) y APUESTA (derecha)
+   Carcasa ahumada con filo dorado, el mismo cristal de la referencia.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .machine__side .controls .balance,
+  body.is-demo .machine__side .controls .balance,
+  .machine__side .controls .bet-readout {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 0;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    padding: 3px 5px;
+    border: 2px solid #ffd977;
+    border-radius: 10px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 48%),
+      linear-gradient(180deg, #45101a 0%, #1d0308 72%, #2c0509 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.18),
+      inset 0 -6px 10px rgba(0, 0, 0, 0.55),
+      0 2px 0 #a35a06,
+      0 5px 10px rgba(60, 10, 0, 0.35);
+    overflow: hidden;
+  }
+
+  /* El filete de la versión de escritorio ya no hace falta: el marco lo lleva. */
+  .machine__side .controls .balance::after { display: none; }
+
+  .machine__side .controls .balance,
+  body.is-demo .machine__side .controls .balance {
+    grid-area: wallet;
+    display: grid;
+    grid-template-columns: minmax(0, auto) auto;
+    grid-template-areas:
+      "label label"
+      "value currency";
+    align-items: end;
+    justify-content: center;
+    column-gap: 4px;
+    row-gap: 1px;
+  }
+
+  .machine__side .controls .balance__label {
+    grid-area: label;
+    font-size: clamp(6.5px, 1.9vw, 8px);
+    line-height: 1.1;
+    letter-spacing: 0.14em;
+    text-align: center;
+    color: #ffd977;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+  }
+
+  .machine__side .controls .balance__value {
+    grid-area: value;
+    min-width: 0;
+    font-size: clamp(12px, 3.7vw, 17px);
+    line-height: 1.02;
+    white-space: nowrap;
+    filter: drop-shadow(0 1px 0 #5a2700) drop-shadow(0 0 6px rgba(255, 200, 60, 0.45));
+  }
+
+  .machine__side .controls .balance__currency {
+    grid-area: currency;
+    margin-left: 0;
+    padding-bottom: 1px;
+    font-size: clamp(6.5px, 1.8vw, 8.5px);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: #ffce6a;
+    -webkit-text-fill-color: #ffce6a;
+    opacity: 0.9;
+  }
+
+  .machine__side .controls .bet-readout {
+    grid-area: bet;
+    grid-template-rows: auto auto;
+  }
+
+  .machine__side .controls .bet-readout__label {
+    font-size: clamp(6.5px, 1.9vw, 8px);
+    line-height: 1.1;
+    letter-spacing: 0.1em;
+    color: #ffd977;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+  }
+
+  .machine__side .controls .bet-readout__value {
+    font-size: clamp(12px, 3.7vw, 17px);
+    line-height: 1.02;
+    color: #fff6c9;
+    text-shadow: 0 1px 0 rgba(80, 30, 0, 0.6), 0 0 8px rgba(255, 214, 90, 0.5);
+  }
+
+  /* MAX: ficha rectangular junto al marco de apuesta (valor rápido). */
+  .machine__side .controls__bet .chip--max.gbtn {
+    grid-area: max;
+    align-self: stretch;
+    justify-self: stretch;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 0 2px;
+    border-radius: 10px;
+    font-size: clamp(7px, 2.1vw, 9.5px);
+    letter-spacing: 0.04em;
+  }
+
+  /* Pie de la consola: estado del motor, legible sobre el oro. */
+  .machine__side .controls .statusbar {
+    grid-area: status;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    min-height: 0;
+    padding: 0;
+    color: #3f1a04;
+    font-size: clamp(7.5px, 2.1vw, 9.5px);
+    font-weight: 800;
+    line-height: 1.1;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  .machine__side .controls .statusbar__item--right { display: none; }
+
+  /* El pie es una sola línea centrada: sin `flex: 1` heredado del escritorio,
+     el texto no se pega al borde izquierdo de la carcasa. */
+  .machine__side .controls .statusbar > .statusbar__item { flex: 0 1 auto; }
+}
+
+/* --------------------------------------------------------------------------
+   6) Botones laterales · cápsulas candy glass y fichas 3D
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  /* --- FEVER: estrella + rótulo "MÁS" ------------------------------------ */
+  .machine__side .controls #btn-feature.gbtn {
+    grid-area: fever;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
+    align-self: center;
+    gap: 1px;
+    width: clamp(44px, 13vw, 56px);
+    height: auto;
+    aspect-ratio: 1;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .machine__side .controls #btn-feature .btn__main {
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+  }
+
+  .machine__side .controls #btn-feature .btn__glyph {
+    width: clamp(14px, 4.4vw, 20px);
+    height: clamp(14px, 4.4vw, 20px);
+  }
+
+  /* El título lo escribe el JS con la etiqueta del feature: se conserva en el
+     árbol de accesibilidad, pero el círculo muestra el rótulo corto "MÁS". */
+  .machine__side .controls #btn-feature .btn__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .machine__side .controls #btn-feature .btn__main::after {
+    content: "MÁS";
+    font-size: clamp(6.5px, 2vw, 8px);
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    color: #6e2d00;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  /* El coste (100× · importe) no cabe en el círculo: el estado `disabled` del
+     botón ya avisa cuando el saldo no alcanza. */
+  .machine__side .controls #btn-feature .pill { display: none; }
+
+  /* --- AUTO: flecha de reproducción + contador ---------------------------- */
+  .machine__side .controls #btn-auto.gbtn {
+    grid-area: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
+    align-self: center;
+    gap: 0;
+    width: clamp(44px, 13vw, 56px);
+    height: auto;
+    aspect-ratio: 1;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .machine__side .controls #btn-auto .btn__main {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .machine__side .controls #btn-auto .btn__chev {
+    order: -1;
+    font-size: clamp(11px, 3.4vw, 15px);
+    text-shadow: 0 2px 0 #1c2080;
+  }
+
+  .machine__side .controls #btn-auto .btn__title {
+    font-size: clamp(6.5px, 2vw, 8px);
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+
+  /* Contador de giros como insignia dorada sobre el hombro del círculo. */
+  .machine__side .controls #btn-auto .pill {
+    position: absolute;
+    top: -4px;
+    right: -5px;
+    z-index: 3;
+    min-width: 17px;
+    padding: 1px 4px;
+    font-size: clamp(6.5px, 1.9vw, 8px);
+    line-height: 1.2;
+    color: #4a1200;
+    background: linear-gradient(180deg, #fff6bc, #ffc53d 62%, #e58f12);
+    border: 1px solid #fff3bb;
+    box-shadow: 0 2px 0 rgba(120, 60, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    -webkit-text-stroke: 0;
+    text-shadow: none;
+  }
+
+  /* --- Fichas − y + : discos de caramelo ---------------------------------- */
+  .machine__side .controls__bet .chip.gbtn:not(.chip--max) {
+    align-self: center;
+    justify-self: center;
+    width: clamp(40px, 12.5vw, 54px);
+    height: auto;
+    aspect-ratio: 1;
+    min-width: 0;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .machine__side .controls__bet #btn-bet-down { grid-area: down; }
+  .machine__side .controls__bet #btn-bet-up { grid-area: up; }
+
+  .machine__side .controls__bet .chip__icon {
+    width: clamp(16px, 5.2vw, 23px);
+    height: clamp(16px, 5.2vw, 23px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7) SPIN · el corazón de la consola
+   Botón circular coronado en el centro, con pastilla "GIRAR" a los pies.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .machine__side .controls .btn--spin,
+  .machine__side .controls .btn--spin.gbtn {
+    grid-area: spin;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(3px, 1vw, 5px);
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    max-height: none;
+    aspect-ratio: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+    animation: none;
+    transform: none;
+    filter: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* El botón deja de ser la pieza pintada: el círculo y la pastilla son sus
+     hijos. Se apagan el brillo, las rayas, el barrido y los destellos. */
+  .machine__side .controls .btn--spin.gbtn::before,
+  .machine__side .controls .btn--spin.gbtn::after,
+  .machine__side .controls .btn--spin .shine,
+  .machine__side .controls .btn--spin .spin-spark { display: none; }
+
+  .machine__side .controls .btn--spin .btn__spin-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: clamp(64px, 20vw, 92px);
+    height: auto;
+    aspect-ratio: 1;
+    border: 3px solid #ffe9a0;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 52%),
+      radial-gradient(circle at 50% 118%, rgba(255, 214, 90, 0.55), rgba(255, 214, 90, 0) 58%),
+      linear-gradient(180deg, #ff9ad9 0%, #ef3b9b 48%, #a80f66 100%);
+    box-shadow:
+      0 5px 0 #7d0a4c,
+      0 9px 18px rgba(120, 10, 70, 0.45),
+      0 0 0 3px rgba(255, 255, 255, 0.22),
+      inset 0 3px 0 rgba(255, 255, 255, 0.62),
+      inset 0 -9px 14px rgba(120, 0, 70, 0.45);
+    animation: pana-console-throb 2.4s ease-in-out infinite;
+    -webkit-text-stroke: 0;
+  }
+
+  /* Corona de tres puntas, maciza y dorada. */
+  .machine__side .controls .btn--spin .btn__spin-icon::before {
+    content: "";
+    position: absolute;
+    bottom: calc(100% - 13px);
+    left: 50%;
+    width: 46%;
+    aspect-ratio: 1.5 / 1;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #fff8cf 0%, #ffd54a 44%, #d9870b 100%);
+    clip-path: polygon(
+      0% 100%, 4% 22%, 26% 58%, 50% 0%,
+      74% 58%, 96% 22%, 100% 100%, 74% 86%, 26% 86%
+    );
+    filter: drop-shadow(0 2px 2px rgba(80, 30, 0, 0.45));
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* Halo de pulso: aro que se abre desde el borde del círculo. */
+  .machine__side .controls .btn--spin .btn__spin-icon::after {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    border: 2px solid rgba(255, 240, 170, 0.85);
+    border-radius: 50%;
+    opacity: 0;
+    animation: pana-console-halo 2.4s ease-out infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .machine__side .controls .btn--spin .btn__spin-icon svg {
+    position: relative;
+    z-index: 2;
+    width: 46%;
+    height: 46%;
+    stroke-width: 3.2;
+    filter: drop-shadow(0 2px 0 rgba(120, 0, 70, 0.75));
+  }
+
+  /* Pastilla "GIRAR" / "GIRANDO…": negro caramelo con letras de oro. */
+  .machine__side .controls .btn--spin .btn__spin-label {
+    padding: 2px 9px;
+    border: 1px solid #ffcf5a;
+    border-radius: 999px;
+    font-size: clamp(8px, 2.4vw, 11px);
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: 0.14em;
+    white-space: nowrap;
+    color: #ffd75e;
+    -webkit-text-stroke: 0;
+    background: linear-gradient(180deg, #43120a 0%, #1a0409 72%, #2a0508 100%);
+    box-shadow:
+      0 2px 0 rgba(120, 60, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65), 0 0 7px rgba(255, 200, 60, 0.55);
+  }
+
+  /* Giro en curso: el círculo se apaga y deja de latir. */
+  .machine__side .controls .btn--spin.is-busy .btn__spin-icon {
+    background: linear-gradient(180deg, #c0a8bd 0%, #936f8d 52%, #6b4a67 100%);
+    box-shadow:
+      0 4px 0 #4e2a4a,
+      inset 0 2px 0 rgba(255, 255, 255, 0.35);
+    animation: none;
+  }
+
+  .machine__side .controls .btn--spin.is-busy .btn__spin-icon::after { display: none; }
+
+  .machine__side .controls .btn--spin:disabled {
+    animation: none;
+    filter: none;
+  }
+
+  .machine__side .controls .btn--spin:disabled .btn__spin-icon {
+    filter: grayscale(0.45) brightness(0.92);
+    animation: none;
+  }
+
+  .machine__side .controls .btn--spin:disabled .btn__spin-icon::after { display: none; }
+
+  .machine__side .controls .btn--spin:active:not(:disabled) .btn__spin-icon {
+    translate: 0 3px;
+    filter: brightness(0.96);
+  }
+}
+
+@keyframes pana-console-throb {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+
+@keyframes pana-console-halo {
+  0% { opacity: 0.9; transform: scale(0.92); }
+  68% { opacity: 0; transform: scale(1.26); }
+  100% { opacity: 0; transform: scale(1.26); }
+}
+
+/* --------------------------------------------------------------------------
+   8) Cabecera delgada · todo el alto sobrante es del tablero
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .app {
+    height: 100dvh;
+    gap: clamp(4px, 1.2dvh, 9px);
+    padding:
+      max(5px, env(safe-area-inset-top))
+      clamp(4px, 1.5vw, 10px)
+      max(5px, env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+
+  .topbar {
+    flex-wrap: nowrap;
+    gap: 6px;
+    min-height: 0;
+    padding: 4px 8px;
+    border-radius: 14px;
+  }
+
+  .brand {
+    flex: 1 1 auto;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .brand__mark {
+    flex: 0 0 auto;
+    font-size: clamp(17px, 5.2vw, 23px);
+    filter: drop-shadow(0 2px 6px rgba(255, 116, 200, 0.45));
+  }
+
+  .brand__text {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .brand__title {
+    font-size: clamp(11px, 3.3vw, 15px);
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .brand__sub { display: none; }
+
+  .topbar__right {
+    flex: 0 0 auto;
+    width: auto;
+    flex-wrap: nowrap;
+    gap: 5px;
+  }
+
+  .topbar .btn--demo {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    min-height: 0;
+    padding: 3px 8px;
+    border-radius: 10px;
+  }
+
+  .topbar .btn--demo .btn__title {
+    font-size: clamp(8px, 2.4vw, 10px);
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+  }
+
+  .topbar .btn--demo .btn__sub { display: none; }
+
+  .topbar .icon-btn {
+    width: clamp(28px, 8vw, 34px);
+    height: clamp(28px, 8vw, 34px);
+    border-radius: 10px;
+    font-size: clamp(12px, 3.4vw, 15px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9) Ajustes finos · pantallas muy estrechas, bajas o en horizontal
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 374px) {
+  .machine { --m-head-h: clamp(64px, 12dvh, 84px); }
+  .machine__side .machine__hero { width: 84px; }
+  .machine__side .controls .btn__spin-label { letter-spacing: 0.08em; }
+  .machine__side .controls .balance__label,
+  .machine__side .controls .bet-readout__label { letter-spacing: 0.04em; }
+}
+
+/* Móviles altos: el HUD crece con el logo en vez de quedar flotando. */
+@media (max-width: 899px) and (min-height: 760px) {
+  .machine__side .hud__cell { min-height: clamp(56px, 8dvh, 72px); }
+}
+
+/* Móviles bajos (o con navegador ocupando alto): el logo cede su sitio. */
+@media (max-width: 899px) and (max-height: 700px) {
+  .machine__side .machine__hero { display: none; }
+  .machine {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "hud"
+      "table"
+      "console";
+  }
+  .machine__side .hud { height: clamp(44px, 7.4dvh, 58px); }
+  .machine__side .controls { padding: 6px 7px 4px; }
+  .machine__side .controls .btn--spin .btn__spin-icon { width: clamp(52px, 16vw, 70px); }
+}
+
+/* Horizontal: cabecera mínima y el tablero a la izquierda con la consola a la
+   derecha. En 390 px de alto la fila vertical no da para un tablero legible;
+   en dos columnas el tablero usa todo el alto disponible. */
+@media (max-width: 899px) and (orientation: landscape) and (max-height: 520px) {
+  .machine__side .machine__hero { display: none; }
+  .machine {
+    grid-template-columns: minmax(0, 1fr) clamp(248px, 38vw, 340px);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "hud    hud"
+      "table  console";
+    row-gap: 5px;
+    column-gap: clamp(6px, 1.4vw, 12px);
+  }
+  .app { gap: 4px; }
+  .topbar { padding: 2px 6px; }
+  .topbar .brand { flex: 0 1 auto; gap: 5px; }
+  .topbar .brand__mark { font-size: 16px; }
+  .topbar .brand__title { font-size: 11px; letter-spacing: 0.03em; }
+  .topbar__right { width: auto; }
+  .machine__side .hud {
+    height: 34px;
+    width: min(100%, 640px);
+    justify-self: center;
+    padding: 2px 4px;
+    gap: 4px;
+  }
+  .machine__side .hud__cell { padding: 1px 3px; }
+  .machine__side .hud__label { font-size: 7px; letter-spacing: 0.04em; }
+  .machine__side .hud__value,
+  .machine__side .hud__cell--win .hud__value { font-size: 14px; }
+  /* La carcasa ocupa todo el alto de la columna; los controles se agrupan en
+     el centro con aire alrededor en vez de amontonarse o dispersarse. */
+  .machine__side .controls {
+    grid-template-rows: minmax(50px, auto) minmax(54px, auto) auto;
+    align-content: center;
+    gap: clamp(7px, 1.8dvh, 12px);
+    padding: 8px 7px 4px;
+  }
+  .machine__side .controls .btn--spin .btn__spin-icon { width: clamp(54px, 8.4vw, 74px); }
+  .machine__side .controls .btn--spin .btn__spin-label { font-size: 8px; padding: 1px 7px; }
+  .machine__side .controls #btn-feature.gbtn,
+  .machine__side .controls #btn-auto.gbtn { width: 44px; }
+  .machine__side .controls__bet .chip.gbtn:not(.chip--max) { width: 42px; }
+  .machine__side .controls .balance__value,
+  .machine__side .controls .bet-readout__value { font-size: 13px; }
+  .machine__side .controls .statusbar { font-size: 7.5px; }
+}
+
+/* Con movimiento reducido, el botón sigue vivo pero sin latido ni halo. */
+@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
+  .machine__side .controls .btn--spin .btn__spin-icon,
+  .machine__side .controls .btn--spin .btn__spin-icon::after,
+  .machine__side .machine__logo { animation: none; }
+  .machine__side .controls .btn--spin .btn__spin-icon::after { display: none; }
+}
+
