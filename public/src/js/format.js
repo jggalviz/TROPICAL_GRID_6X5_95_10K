@@ -3,18 +3,25 @@
  * pinta lo que recibe del servidor.
  */
 
+/*
+ * Mapa visual de los 11 simbolos del motor sobre los assets de PANA CRUSH.
+ * `image` es la fuente principal de la casilla; `glyph` queda como fallback
+ * accesible si la imagen no llega a cargar.
+ */
+const SYMBOL_IMAGE_PATH = '/src/assets/symbols/';
+
 export const SYMBOLS = Object.freeze({
-  S1: { glyph: '🍋', name: 'Limón' },
-  S2: { glyph: '🍈', name: 'Melón' },
-  S3: { glyph: '🍉', name: 'Sandía' },
-  S4: { glyph: '🍍', name: 'Piña' },
-  S5: { glyph: '🥥', name: 'Coco' },
-  S6: { glyph: '🍌', name: 'Plátano' },
-  S7: { glyph: '🥝', name: 'Kiwi' },
-  S8: { glyph: '🍇', name: 'Uvas' },
-  S9: { glyph: '💎', name: 'Diamante' },
-  SC: { glyph: '🌺', name: 'Flor (scatter)' },
-  MX: { glyph: '💣', name: 'Bomba' }
+  S1: { glyph: '🍬', name: 'Menta arcoíris', image: `${SYMBOL_IMAGE_PATH}candy_2.png` },
+  S2: { glyph: '🍊', name: 'Gominola de naranja', image: `${SYMBOL_IMAGE_PATH}candy_6.png` },
+  S3: { glyph: '🍋', name: 'Caramelo de limón', image: `${SYMBOL_IMAGE_PATH}candy_3.png` },
+  S4: { glyph: '🍏', name: 'Gominola de manzana', image: `${SYMBOL_IMAGE_PATH}candy_8.png` },
+  S5: { glyph: '🍇', name: 'Caramelo de uva', image: `${SYMBOL_IMAGE_PATH}candy_19.png` },
+  S6: { glyph: '🐻', name: 'Osito de fresa', image: `${SYMBOL_IMAGE_PATH}candy_5.png` },
+  S7: { glyph: '🥥', name: 'Coco de chocolate', image: `${SYMBOL_IMAGE_PATH}candy_11.png` },
+  S8: { glyph: '🍓', name: 'Fresa glaseada', image: `${SYMBOL_IMAGE_PATH}candy_13.png` },
+  S9: { glyph: '🍪', name: 'Galleta de caramelos', image: `${SYMBOL_IMAGE_PATH}candy_15.png` },
+  SC: { glyph: '🍭', name: 'Lollipop (scatter)', image: `${SYMBOL_IMAGE_PATH}candy_20.png` },
+  MX: { glyph: '💥', name: 'Caramelo bomba', image: `${SYMBOL_IMAGE_PATH}candy_4.png` }
 });
 
 export const SYMBOL_KEYS = Object.freeze(['S9', 'S8', 'S7', 'S6', 'S5', 'S4', 'S3', 'S2', 'S1']);

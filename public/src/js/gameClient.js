@@ -383,7 +383,7 @@ export class GameClient {
     if (spin.scatter && spin.scatter.count >= 3) {
       this.ui.highlightCells(spin.scatter.cells, 'tile--scatter');
       this.sfx.cluster(12);
-      this.ui.toast(`Flor ×${spin.scatter.count}: +${formatCents(spin.scatter.payCents)}`, {
+      this.ui.toast(`Scatter ×${spin.scatter.count}: +${formatCents(spin.scatter.payCents)}`, {
         type: 'info',
         timeout: 2600
       });

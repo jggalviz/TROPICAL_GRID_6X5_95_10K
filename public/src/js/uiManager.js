@@ -137,10 +137,22 @@ export class Ui {
         tile.dataset.sym = 'S1';
         tile.dataset.row = String(row);
         tile.dataset.col = String(col);
+        const image = document.createElement('img');
+        image.className = 'tile__img';
+        image.alt = '';
+        image.decoding = 'async';
+        image.draggable = false;
+        image.addEventListener('error', () => {
+          image.hidden = true;
+          const fallback = tile.querySelector('.tile__glyph');
+          if (fallback) fallback.hidden = false;
+        });
+
         const glyph = document.createElement('span');
         glyph.className = 'tile__glyph';
         glyph.setAttribute('aria-hidden', 'true');
-        tile.appendChild(glyph);
+
+        tile.append(image, glyph);
         grid.appendChild(tile);
         this.tiles.push(tile);
       }
@@ -150,10 +162,28 @@ export class Ui {
   setTile(index, symbol, bombValue = 0) {
     const tile = this.tiles[index];
     if (!tile) return;
+    const meta = symbol ? symbolMeta(symbol) : null;
+    const image = tile.querySelector('.tile__img');
+    const glyph = tile.querySelector('.tile__glyph');
+
     tile.dataset.sym = symbol || '';
     tile.classList.toggle('tile--empty', !symbol);
-    const glyph = tile.firstElementChild;
-    if (glyph) glyph.textContent = symbol ? symbolMeta(symbol).glyph : '';
+    tile.setAttribute('aria-label', meta ? meta.name : 'Casilla vacía');
+
+    if (glyph) {
+      glyph.textContent = meta ? meta.glyph : '';
+      glyph.hidden = Boolean(meta && meta.image);
+    }
+
+    if (image) {
+      if (meta && meta.image) {
+        if (image.getAttribute('src') !== meta.image) image.src = meta.image;
+        image.hidden = false;
+      } else {
+        image.removeAttribute('src');
+        image.hidden = true;
+      }
+    }
 
     let badge = tile.querySelector('.tile__bomb-value');
     if (bombValue > 0) {
@@ -330,7 +360,7 @@ export class Ui {
     this.refs.spinBtn.classList.toggle('is-busy', busy);
     this.refs.spinBtn.disabled = Boolean(busy);
     this.refs.spinBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
-    this.refs.spinLabel.textContent = busy ? 'GIRANDO…' : 'GIRAR';
+    this.refs.spinLabel.textContent = busy ? 'GIRANDO…' : 'SPIN';
     this.refs.betUp.disabled = Boolean(busy);
     this.refs.betDown.disabled = Boolean(busy);
     this.refs.betMax.disabled = Boolean(busy);
@@ -548,7 +578,7 @@ export class Ui {
       const meta = symbolMeta(symbol);
       const pays = (info.clusterPays && info.clusterPays[symbol]) || {};
       const cells = tiers.map((tier) => `<td>${formatPlain(pays[tier] || 0)}×</td>`).join('');
-      return `<tr><td>${meta.glyph} ${escapeHtml(meta.name)}</td>${cells}</tr>`;
+      return `<tr><td><span class="paytable__symbol"><img class="paytable__icon" src="${escapeHtml(meta.image)}" alt="" />${escapeHtml(meta.name)}</span></td>${cells}</tr>`;
     }).join('');
 
     const scatter = info.scatterPays || {};
@@ -578,7 +608,7 @@ export class Ui {
         <tbody>${clusterRows}</tbody>
       </table>
 
-      <h3>Scatter 🌺 (solo tirada inicial)</h3>
+      <h3>Scatter 🍭 (solo tirada inicial)</h3>
       <table class="paytable">
         <thead><tr><th>Cantidad</th><th>3</th><th>4</th><th>5</th><th>6+</th></tr></thead>
         <tbody><tr><td>Pago × apuesta</td>${scatterCells}</tr></tbody>

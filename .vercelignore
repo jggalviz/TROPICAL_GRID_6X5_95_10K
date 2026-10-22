@@ -6,3 +6,6 @@
 .sim
 .diag*
 *.log
+
+# Captura de referencia de la maqueta: no forma parte del juego publicado.
+public/src/ejemplo.png

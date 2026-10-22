@@ -3,19 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Tropical Grid 6x5: slot de agrupaciones con motor autoritativo en servidor. RTP 95%, ganancia maxima 10.000x." />
-  <meta name="color-scheme" content="dark" />
-  <title>Tropical Grid 6x5 · RTP 95%</title>
+  <meta name="description" content="PANA CRUSH 6x5: slot de agrupaciones con motor autoritativo en servidor. RTP 95%, ganancia maxima 10.000x." />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ff74c8" />
+  <title>PANA CRUSH · 6×5 · RTP 95%</title>
   <link rel="stylesheet" href="/src/css/style.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <span class="brand__mark" aria-hidden="true">🌴</span>
+        <span class="brand__mark" aria-hidden="true">🍭</span>
         <div class="brand__text">
-          <h1 class="brand__title">Tropical Grid <span>6×5</span></h1>
-          <p class="brand__sub">Cluster Pays · RTP 95 % · Máx. 10.000×</p>
+          <h1 class="brand__title">PANA CRUSH <span>6×5</span></h1>
+          <p class="brand__sub">Sweet Cluster Pays · RTP 95 % · Máx. 10.000×</p>
         </div>
       </div>
 
@@ -25,11 +26,6 @@
           <span class="btn__title">Fichas de Prueba</span>
           <span class="btn__sub" id="demo-sub">1.000,00 VES</span>
         </button>
-        <div class="balance" aria-live="polite">
-          <span class="balance__label" id="balance-label">Saldo</span>
-          <span class="balance__value" id="balance-value">—</span>
-          <span class="balance__currency" id="balance-currency">EUR</span>
-        </div>
         <button class="icon-btn" id="btn-sound" type="button" aria-pressed="true"
                 title="Sonido" aria-label="Activar o desactivar sonido">🔊</button>
         <button class="icon-btn" id="btn-help" type="button"
@@ -39,6 +35,24 @@
 
     <main class="stage">
       <section class="machine" aria-label="Máquina de juego">
+        <div class="machine__hero">
+          <span class="machine__spark machine__spark--left" aria-hidden="true">✦</span>
+          <img class="machine__logo" src="/src/assets/PANA-CRUSH-LOGO.png"
+               alt="PANA CRUSH" width="1254" height="1254" fetchpriority="high" />
+          <span class="machine__spark machine__spark--right" aria-hidden="true">✦</span>
+        </div>
+
+        <div class="board">
+          <div class="grid" id="grid" role="img" aria-label="Cuadrícula de 6 columnas y 5 filas"></div>
+          <div class="board__overlay" id="board-overlay" aria-live="polite">
+            <div class="banner" id="banner">
+              <span class="banner__level" id="banner-level"></span>
+              <span class="banner__amount" id="banner-amount"></span>
+            </div>
+            <div class="spin-tag" id="spin-tag"></div>
+          </div>
+        </div>
+
         <div class="hud">
           <div class="hud__cell">
             <span class="hud__label">Apuesta</span>
@@ -54,18 +68,15 @@
           </div>
         </div>
 
-        <div class="board">
-          <div class="grid" id="grid" role="img" aria-label="Cuadrícula de 6 columnas y 5 filas"></div>
-          <div class="board__overlay" id="board-overlay" aria-live="polite">
-            <div class="banner" id="banner">
-              <span class="banner__level" id="banner-level"></span>
-              <span class="banner__amount" id="banner-amount"></span>
-            </div>
-            <div class="spin-tag" id="spin-tag"></div>
-          </div>
-        </div>
-
         <div class="controls">
+          <div class="controls__wallet">
+            <div class="balance" aria-live="polite">
+              <span class="balance__label" id="balance-label">Saldo</span>
+              <span class="balance__value" id="balance-value">—</span>
+              <span class="balance__currency" id="balance-currency">EUR</span>
+            </div>
+          </div>
+
           <div class="controls__bet">
             <button class="chip" id="btn-bet-down" type="button" aria-label="Bajar apuesta">−</button>
             <div class="bet-readout">
@@ -83,7 +94,8 @@
             </button>
 
             <button class="btn btn--spin" id="btn-spin" type="button">
-              <span class="btn__spin-label" id="spin-label">GIRAR</span>
+              <span class="btn__spin-icon" aria-hidden="true">⟳</span>
+              <span class="btn__spin-label" id="spin-label">SPIN</span>
             </button>
 
             <button class="btn btn--auto" id="btn-auto" type="button" aria-pressed="false">
