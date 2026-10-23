@@ -3678,8 +3678,6 @@ body.is-demo .machine__side .controls__wallet {
     margin: 8px 0;
   }
 
-  .machine__side .controls .btn--spin .btn__spin-label { font-size: clamp(20px, 3.2vh, 28px); }
-
   /* A una columna el tablero ya no dicta la fila: se ajusta al alto que le
      queda debajo de los controles midiendo su propio contenedor. */
   .machine__table {
@@ -3974,7 +3972,6 @@ body,
   .machine__side .hud__label,
   .machine__side .bet-readout__label { letter-spacing: 0.3px; }
 
-  .machine__side .controls .btn--spin .btn__spin-label { letter-spacing: 0.03em; }
   .machine__side .controls__bet .chip--max { letter-spacing: 0.02em; }
 }
 
@@ -4597,20 +4594,10 @@ body.is-demo .machine__side .controls .balance::after {
     border-width: 3px;
   }
 
-  .machine__side .controls .btn--spin .btn__spin-label {
-    font-size: clamp(20px, 3.2vh, 28px);
-    letter-spacing: 0.06em;
-    -webkit-text-stroke-width: 1.5px;
-    text-shadow: 0 3px 0 #8f0f63, 0 6px 10px rgba(60, 0, 50, 0.4);
-  }
-
   .machine__side .controls .btn__spin-icon svg {
     width: 24px;
     height: 24px;
   }
-
-  .machine__side .controls .btn--feature.gbtn .btn__title,
-  .machine__side .controls .btn--auto.gbtn .btn__title { font-size: clamp(11px, 1.9vh, 13px); }
 
   .machine__side .controls .btn__glyph { width: 12px; height: 12px; }
   .machine__side .controls .btn__chev { width: auto; height: auto; font-size: 9px; }
@@ -4846,19 +4833,6 @@ body.is-demo .machine__side .controls .balance::after {
     overflow: visible;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    /* Geometria de la pastilla del GIRAR, medida pixel a pixel sobre
-       `consola_movil.webp` (capturas a 8x en 390x844 y 360x640):
-         - la capsula oscura del fondo va del 67,7 % al 78,9 % del alto del
-           case, asi que su centro cae en el 73,3 %;
-         - el boton tactil que la cubre ocupa del 14,91 % al 78,98 %, es
-           decir, el 64,07 % del alto.
-       De ahi sale el `top` del rotulo `#spin-label` (ver mas abajo).
-       `--spin-optical` compensa que, con `line-height: 1`, las mayusculas se
-       dibujan por encima del centro de su caja de linea: 0,51 % del boton. */
-    --spin-case-capsule-center: 73.3;
-    --spin-case-btn-top: 14.91;
-    --spin-case-btn-h: 64.07;
-    --spin-optical: 0.51;
     /* El case mantiene su proporcion aunque la fila del grid crezca: si se
        estirara, el dibujo (`contain`) se centraria con aire y los controles
        dejarian de coincidir con sus pastillas. */
@@ -5086,38 +5060,6 @@ body.is-demo .machine__side .controls .balance::after {
     box-shadow: none;
   }
 
-  .machine__side .controls #btn-feature .btn__main {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 19%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-  }
-
-  /* El titulo real ("Tropical Fever") se conserva para lectores de pantalla;
-     la placa del case muestra el rotulo corto. */
-  .machine__side .controls #btn-feature .btn__title {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  /* La placa "MÁS" ya viene impresa en el case: el pseudo no pinta nada y el
-     nombre accesible del boton sigue siendo "Tropical Fever". */
-  .machine__side .controls #btn-feature .btn__main::after {
-    content: none;
-  }
-
   /* El coste no cabe en la placa: el estado `disabled` ya avisa del saldo. */
   .machine__side .controls #btn-feature .pill { display: none; }
 
@@ -5129,32 +5071,6 @@ body.is-demo .machine__side .controls .balance::after {
     height: 41.29%;
     background: none;
     box-shadow: none;
-  }
-
-  .machine__side .controls #btn-auto .btn__main {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 19%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-  }
-
-  /* La placa "AUTO" tambien viene impresa en el case: el titulo se conserva
-     como texto solo para lectores de pantalla. */
-  .machine__side .controls #btn-auto .btn__title {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
   }
 
   /* Giros restantes como insignia dorada en el hombro del disco. */
@@ -5208,9 +5124,17 @@ body.is-demo .machine__side .controls .balance::after {
     -webkit-text-stroke: 0;
   }
 
-  /* La placa dice "APUESTA" en el case: "MAX" solo sobrevive para lectores de
-     pantalla (el boton ya declara `aria-label="Apuesta máxima"`). */
-  .machine__side .controls__bet #btn-bet-max .chip__label {
+  /* --- Rotulos: los pinta el case, no el DOM ------------------------------
+     Las cuatro placas de la fila inferior (MÁS · AUTO · GIRAR · APUESTA) ya
+     vienen impresas en `consola_movil.webp`. Por eso el texto equivalente del
+     DOM no se pinta: se recorta a 1x1 y queda solo como nombre accesible del
+     pulsador (y, en `#spin-label`, como estado que el JS cambia a "GIRANDO…").
+     Ni una letra del DOM cae sobre el arte; los toques siguen llegando al
+     boton porque la caja tactil es el propio boton, no el texto. */
+  .machine__side .controls #btn-feature .btn__title,
+  .machine__side .controls #btn-auto .btn__title,
+  .machine__side .controls__bet #btn-bet-max .chip__label,
+  .machine__side .controls #spin-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -5412,50 +5336,6 @@ body.is-demo .machine__side .controls .balance::after {
     pointer-events: none;
   }
 
-  /* Rotulo SPIN: clavado en el centro de la pastilla oscura del case.
-     `top` no es un numero suelto: se deriva de las tres medidas declaradas en
-     `.machine__side .controls` (centro de la capsula al 73,3 % del case, boton
-     del 14,91 % al 78,98 %) y suma `--spin-optical` para que el centro de la
-     tinta, y no el de la caja de linea, caiga sobre el centro de la capsula.
-     Resultado: 91,64 % del boton, equivalente al 73,63 % del case.
-     `translate(-50%, -50%)` centra sin depender del tamano de fuente y el
-     `+ 0.07em` compensa el hueco que `letter-spacing` deja tras la ultima
-     letra. Verificado pixel a pixel: el aire sobre y bajo la tinta dentro de
-     la capsula queda igualado (desvio <= 0,2 px de 320 a 430 px de ancho). */
-  .machine__side .controls #spin-label {
-    position: absolute;
-    left: 50%;
-    top: calc(
-      (var(--spin-case-capsule-center) - var(--spin-case-btn-top)) /
-      var(--spin-case-btn-h) * 100% + var(--spin-optical) * 1%
-    );
-    transform: translate(calc(-50% + 0.07em), -50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* El rótulo "GIRAR" ya está impreso en la placa del case. El texto del DOM
-       se queda solo para lectores de pantalla y lectores de estado: invisible,
-       fuera del flujo de pintado y sin capturar toques. */
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    border: 0;
-    border-radius: 0;
-    font-size: clamp(7.5px, 2.3vw, 10.5px);
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: 0.14em;
-    white-space: nowrap;
-    color: #ffd75e;
-    background: none;
-    box-shadow: none;
-    -webkit-text-stroke: 0;
-    text-shadow: 0 1px 1px rgba(40, 4, 0, 0.8);
-  }
-
   /* Pulsacion: el disco se hunde y su cara se ilumina.
      Mismo bisel + brillo que los discos laterales, con el recorte del disco
      grande y el borde difuminado para que el velo se funda con el aro y con la
@@ -5614,7 +5494,6 @@ body.is-demo .machine__side .controls .balance::after {
 @media (max-width: 374px) {
   .machine { --m-head-h: clamp(64px, 12dvh, 84px); }
   .machine__side .machine__hero { width: 84px; }
-  .machine__side .controls .btn__spin-label { letter-spacing: 0.08em; }
   .machine__side .controls .balance__label,
   .machine__side .controls .bet-readout__label { letter-spacing: 0.04em; }
 }
@@ -5676,7 +5555,6 @@ body.is-demo .machine__side .controls .balance::after {
     max-width: none;
     margin-inline: auto;
   }
-  .machine__side .controls .btn--spin .btn__spin-label { font-size: 7px; letter-spacing: 0.1em; }
   .machine__side .controls .balance__label,
   .machine__side .controls .bet-readout__label { font-size: 6px; letter-spacing: 0.05em; }
   .machine__side .controls .balance__value,

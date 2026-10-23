@@ -272,40 +272,72 @@ test('las fuentes candy se sirven como WOFF2 propios y sin bloquear el render', 
 
 
 
-test('el rotulo SPIN se deriva del centro de la capsula del case', () => {
+test('los rotulos del case no se repintan: el DOM solo guarda nombre accesible y estado', () => {
   const css = read(STYLE_PATH);
 
-  // El case dibuja la pastilla del GIRAR entre el 67,7 % y el 78,9 % de su
-  // alto: su centro cae en el 73,3 %. El rotulo cuelga del boton tactil, asi
-  // que su `top` tiene que salir de ahi y no de un porcentaje suelto.
-  const caseVar = css.match(/--spin-case-capsule-center:\s*([\d.]+);/);
-  assert.ok(caseVar, 'El case debe declarar --spin-case-capsule-center');
-  const capsuleCenter = Number(caseVar[1]);
-  assert.ok(
-    capsuleCenter >= 73 && capsuleCenter <= 75,
-    `El centro de la capsula debe quedar entre el 73 % y el 75 % del case (es ${capsuleCenter})`
+  // Las cuatro placas de la fila inferior (MAS · AUTO · GIRAR · APUESTA) ya
+  // vienen impresas en `consola_movil.webp`. Ninguna regla puede volver a
+  // pintarlas: los textos equivalentes del DOM se recortan a 1x1 en una sola
+  // regla compartida, que ademas es la unica que toca a `#spin-label`.
+  const start = css.indexOf('.machine__side .controls #btn-feature .btn__title,');
+  assert.ok(start > -1, 'Debe existir una regla unica para los rotulos impresos en el case');
+
+  const block = css.slice(start, css.indexOf('}', start));
+  for (const selector of [
+    '.machine__side .controls #btn-auto .btn__title,',
+    '.machine__side .controls__bet #btn-bet-max .chip__label,',
+    '.machine__side .controls #spin-label {'
+  ]) {
+    assert.ok(
+      block.includes(selector),
+      `La regla compartida debe cubrir ${selector.replace(/[,\s{]+$/, '')}`
+    );
+  }
+
+  for (const declaration of [
+    'position: absolute;',
+    'width: 1px;',
+    'height: 1px;',
+    'overflow: hidden;',
+    'clip-path: inset(50%);'
+  ]) {
+    assert.ok(block.includes(declaration), `Un rotulo impreso en el case necesita \`${declaration}\``);
+  }
+
+  // Oculto de verdad: sin colocacion ni tipografia propia sobre el arte.
+  assert.doesNotMatch(
+    block,
+    /\b(?:top|left|right|bottom|transform|font-size|letter-spacing|color|text-shadow):/,
+    'Si la placa la pinta el case, el rotulo no necesita geometria ni estilo de texto'
   );
 
+  // El case es la unica capa grafica de la consola movil.
   assert.match(
     css,
-    /--spin-case-btn-top:\s*[\d.]+;[\s\S]*?--spin-case-btn-h:\s*[\d.]+;/,
-    'El boton tactil debe declarar donde empieza y cuanto ocupa dentro del case'
+    /\.machine__side \.controls \{[\s\S]*?background: url\('\.\.\/assets\/consola_movil\.webp'\) no-repeat center \/ contain;/,
+    'La carcasa movil debe pintar `consola_movil.webp`, que ya trae los rotulos integrados'
+  );
+
+  // Y los textos siguen en el HTML: son el nombre accesible de cada pulsador y
+  // `#spin-label` cambia a "GIRANDO…" mientras el motor gira.
+  const html = read(INDEX_PATH);
+  assert.match(
+    html,
+    /<span class="btn__spin-label" id="spin-label">SPIN<\/span>/,
+    'El estado del giro debe seguir en el DOM para lectores de pantalla'
   );
   assert.match(
-    css,
-    /#spin-label\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*50%;[\s\S]*?top:\s*calc\([\s\S]*?--spin-case-capsule-center[\s\S]*?--spin-case-btn-top[\s\S]*?--spin-case-btn-h[\s\S]*?\);/,
-    'El `top` del rotulo debe calcularse desde las medidas del case'
+    html,
+    /<span class="chip__label">MAX<\/span>/,
+    'El nombre accesible de la apuesta maxima no se borra: solo se oculta'
   );
   assert.match(
-    css,
-    /#spin-label\s*\{[\s\S]*?transform:\s*translate\(calc\(-50% \+ 0\.07em\),\s*-50%\);/,
-    'El rotulo se centra con translate, sin depender del tamano de fuente'
+    html,
+    /id="btn-auto"[^>]*>[\s\S]*?<span class="btn__title">AUTO<\/span>/,
+    'El pulsador AUTO conserva su texto como nombre accesible'
   );
-  assert.match(
-    css,
-    /#spin-label\s*\{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/,
-    'El texto debe respirar centrado dentro de su caja'
-  );
+  assert.match(html, /<span class="balance__value" id="balance-value">/, 'El saldo dinamico sigue en el HUD');
+  assert.match(html, /<strong class="bet-readout__value" id="bet-readout">/, 'La apuesta dinamica sigue en el HUD');
 });
 test('la consola y el tablero comparten el mismo eje X en movil', () => {
   const css = read(STYLE_PATH);
