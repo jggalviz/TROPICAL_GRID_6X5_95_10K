@@ -218,41 +218,95 @@ test('el escalado del tablero y las casillas se adapta al alto disponible', () =
   );
 });
 
-test('el fondo ilustrado se sirve como WebP optimizado con el SVG de respaldo', () => {
+test('cada dispositivo pinta su propio fondo ilustrado en WebP de calidad 90', () => {
   const css = read(STYLE_PATH);
-  const webp = path.join(PUBLIC_DIR, 'src', 'assets', 'background.webp');
-  const svg = path.join(PUBLIC_DIR, 'src', 'assets', 'background.svg');
 
-  assert.ok(fs.existsSync(webp), 'Falta public/src/assets/background.webp');
-  const size = fs.statSync(webp).size;
-  assert.ok(size > 0, 'background.webp esta vacio');
-  assert.ok(size < 400 * 1024, `background.webp pesa ${(size / 1024).toFixed(1)} KB (objetivo < 400 KB)`);
-  assert.equal(
-    fs.readFileSync(webp).subarray(0, 4).toString('ascii'),
-    'RIFF',
-    'background.webp debe ser un contenedor RIFF'
-  );
-  assert.equal(
-    fs.readFileSync(webp).subarray(8, 12).toString('ascii'),
-    'WEBP',
-    'background.webp debe ser un WebP real'
-  );
-  assert.ok(fs.existsSync(svg), 'El SVG original debe quedar como respaldo');
-  assert.ok(
-    !fs.existsSync(path.join(PUBLIC_DIR, 'src', 'fondo_candy_paisaje_v2.svg')),
-    'El fondo no debe quedar duplicado fuera de assets/'
-  );
+  // Un maestro por dispositivo, archivado en `design/`: todo lo que hay en
+  // `public/src/**` se publica en el CDN y cada PNG pesa ~2 MB.
+  const fondos = [
+    ['reino_de_caramelos_y_arcoiris.png', 'reino_de_caramelos_y_arcoiris.webp'],
+    ['avenida_fantastica_reino_caramelos.png', 'avenida_fantastica_reino_caramelos.webp'],
+  ];
+
+  for (const [master, served] of fondos) {
+    const file = path.join(PUBLIC_DIR, 'src', 'assets', served);
+    assert.ok(fs.existsSync(file), `Falta public/src/assets/${served}`);
+
+    const binary = fs.readFileSync(file);
+    assert.equal(binary.toString('ascii', 0, 4), 'RIFF', `${served} debe ser un contenedor RIFF/WebP`);
+    assert.equal(binary.toString('ascii', 8, 12), 'WEBP', `${served} debe ser un WebP real`);
+
+    // Sin reescalar ni recortar: el fondo se pinta con `cover` + `center` sobre
+    // el mismo eje que el tablero y la consola, asi que el lienzo tiene que
+    // medir exactamente lo que el maestro. Se comprueba contra el IHDR del PNG
+    // y contra las dimensiones codificadas en el bloque VP8 del WebP.
+    const masterFile = path.join(ROOT_DIR, 'design', master);
+    assert.ok(fs.existsSync(masterFile), `Falta el maestro design/${master}`);
+    const png = fs.readFileSync(masterFile);
+    assert.equal(png.toString('ascii', 1, 4), 'PNG', `design/${master} debe ser el PNG maestro`);
+
+    const lossy = webpChunks(binary).find((chunk) => chunk.fourCC === 'VP8 ');
+    assert.ok(lossy, `${served} debe ser un WebP lossy (bloque VP8), sin alfa que nadie pinta`);
+    assert.equal(
+      binary.readUInt16LE(lossy.offset + 14) & 0x3fff,
+      png.readUInt32BE(16),
+      `${served} debe conservar el ancho del maestro`
+    );
+    assert.equal(
+      binary.readUInt16LE(lossy.offset + 16) & 0x3fff,
+      png.readUInt32BE(20),
+      `${served} debe conservar el alto del maestro`
+    );
+
+    // Peso: q=90 deja los dos fondos en ~231/240 KB. El tope evita que una
+    // subida de calidad cuele un PNG disfrazado de WebP.
+    assert.ok(
+      binary.length < 400 * 1024,
+      `${served} pesa ${(binary.length / 1024).toFixed(1)} KB (objetivo < 400 KB)`
+    );
+
+    // Y el maestro no viaja al CDN.
+    assert.ok(
+      !fs.existsSync(path.join(PUBLIC_DIR, 'src', master)),
+      `${master} no debe servirse desde public/src`
+    );
+  }
+
+  // Escritorio: `body` pinta el reino del arcoiris centrado, escalado con
+  // `cover` y anclado al viewport.
   assert.match(
     css,
-    /body\s*\{[^}]*background:\s*url\('\.\.\/assets\/background\.webp'\)\s*center center \/ cover no-repeat fixed;/,
-    "El body debe pintar el WebP fijo, centrado y escalado con 'cover'"
+    /body\s*\{[^}]*background:\s*url\('\.\.\/assets\/reino_de_caramelos_y_arcoiris\.webp'\)\s*no-repeat\s*center\s*center\s*\/\s*cover\s*fixed;/,
+    "El escritorio debe pintar el arcoiris con `cover`, centrado y `fixed`"
   );
+
+  // Movil: el case se recorta sobre la avenida, con el mismo encuadre.
   assert.match(
     css,
-    /background-image:\s*image-set\(\s*url\('\.\.\/assets\/background\.webp'\)\s*type\('image\/webp'\),\s*url\('\.\.\/assets\/background\.svg'\)\s*type\('image\/svg\+xml'\)\s*\)/,
-    'image-set debe preferir WebP y dejar el SVG como respaldo'
+    /@media \(max-width: 899px\) \{\s*body \{\s*background:\s*url\('\.\.\/assets\/avenida_fantastica_reino_caramelos\.webp'\)\s*no-repeat\s*center\s*center\s*\/\s*cover;\s*\}\s*\}/,
+    'Por debajo de 900 px el fondo debe pasar a la avenida fantastica'
   );
+
+  // El fondo anterior (248 KB de WebP + 7,4 MB de SVG) se archiva en `design/`:
+  // ni se sirve desde el CDN ni queda como respaldo muerto en el CSS.
+  for (const retired of ['background.webp', 'background.svg']) {
+    assert.ok(
+      !fs.existsSync(path.join(PUBLIC_DIR, 'src', 'assets', retired)),
+      `${retired} no debe seguir en public/src/assets`
+    );
+    assert.ok(
+      fs.existsSync(path.join(ROOT_DIR, 'design', retired)),
+      `El fondo retirado debe conservarse en design/${retired}`
+    );
+  }
+  assert.doesNotMatch(css, /assets\/background\.(?:webp|svg)/, 'El CSS no debe referenciar el fondo retirado');
+
+  // Sin scroll vertical: el fondo no empuja la maqueta ni en escritorio ni en
+  // movil (el `body` recorta y la carcasa mide el viewport dinamico).
+  assert.match(css, /body\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/, 'El body no debe generar scroll');
+  assert.match(css, /\.app\s*\{[^}]*height:\s*100dvh;/, 'La carcasa sigue midiendo `100dvh`');
 });
+
 test('las fuentes candy se sirven como WOFF2 propios y sin bloquear el render', () => {
   const css = read(STYLE_PATH);
   const html = read(INDEX_PATH);

@@ -1029,16 +1029,13 @@ html {
 }
 
 body {
-  /* Fondo ilustrado optimizado: public/src/assets/background.webp
-     (1920x1080, calidad 90, ~248 KB) fijo respecto al viewport y escalado
-     con `cover` para no deformarse ni repetirse en ningun tamano de pantalla.
-     `image-set()` sirve el WebP y deja el SVG original como respaldo para
-     navegadores sin soporte; si ninguno llega, se ven los degradados de `html`. */
-  background: url('../assets/background.webp') center center / cover no-repeat fixed;
-  background-image: image-set(
-    url('../assets/background.webp') type('image/webp'),
-    url('../assets/background.svg') type('image/svg+xml')
-  );
+  /* Fondo ilustrado de escritorio: public/src/assets/reino_de_caramelos_y_arcoiris.webp
+     (1672x941, calidad 90, ~231 KB, generado con `npm run build:bg` desde el
+     maestro de `design/`). `cover` + `center` lo escalan sin deformar ni repetir
+     en cualquier tamano de pantalla y `fixed` lo ancla al viewport, asi que el
+     arte no se desplaza si el contenido crece. Si el WebP no llega (navegador
+     muy antiguo), quedan los degradados candy de `html`. */
+  background: url('../assets/reino_de_caramelos_y_arcoiris.webp') no-repeat center center / cover fixed;
   position: relative;
   overflow-x: hidden;
   color: var(--ink);
@@ -2881,7 +2878,8 @@ body {
    PANA CRUSH · CAPA DE TARJETAS "CANDY GLASS"
    Los cuatro bloques de la maqueta (logo, indicadores, controles y tablero)
    son tarjetas independientes sobre el fondo ilustrado: se elimina el marco
-   morado unificado y el `background.webp` se ve limpio entre bloque y bloque.
+   morado unificado y el arte del reino (escritorio) o de la avenida (movil) se
+   ve limpio entre bloque y bloque.
    Solo cambia la presentacion: ningun id ni clase que consulte el cliente se
    toca.
    ========================================================================== */
@@ -5512,6 +5510,33 @@ body.is-demo .machine__side .controls .balance::after {
   50% { opacity: 1; transform: scale(1.2); }
 }
 
+
+/* --------------------------------------------------------------------------
+   7quater) Fondo del case · la avenida sustituye al arcoiris de escritorio
+   --------------------------------------------------------------------------
+   Por debajo de 900 px el fondo general pasa a la ilustracion vertical
+   `avenida_fantastica_reino_caramelos.webp` (1024x1536, calidad 90, ~240 KB,
+   generada con `npm run build:bg`): el case de `consola_movil.webp` y el
+   tablero se recortan sobre el mismo arte, sin el arcoiris de escritorio
+   detras.
+
+     - `center center / cover` comparte el encuadre con el escritorio, asi el
+       eje horizontal sigue centrado y ni el case ni el tablero se desplazan;
+     - sin `background-attachment: fixed`: en iOS el fondo fijo se repinta mal
+       al girar el telefono y aqui no hace falta, porque `html, body` miden
+       `height: 100%` con `overflow: hidden` y el `.app` mide `100dvh` (nada
+       que arrastrar);
+     - el color de respaldo sigue en `html`, que pinta su degradado candy si
+       el WebP no llega.
+
+   El resto de la piel movil (7, 7bis, 7ter, 8 y 9) no cambia.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  body {
+    background: url('../assets/avenida_fantastica_reino_caramelos.webp') no-repeat center center / cover;
+  }
+}
 
 /* --------------------------------------------------------------------------
    8) Cabecera delgada · todo el alto sobrante es del tablero
