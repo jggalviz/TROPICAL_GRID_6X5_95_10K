@@ -4830,7 +4830,14 @@ body.is-demo .machine__side .controls .balance::after {
     /* En pantallas anchas o bajas el case se limita por alto y se centra: el
        tablero conserva su sitio sin que la carcasa crezca sin freno. */
     max-width: calc(32dvh * 2.1593);
-    margin-inline: auto;
+    /* Eje unico con el tablero: la carcasa se centra siempre dentro de la fila
+       `console`, que abarca las dos pistas del grid (exactamente la misma caja
+       que la fila `table` del tablero). `justify-self: center` no depende de
+       que el margen automatico gane a `stretch`, y los margenes explicitos
+       cubren el caso de `width: 100%` recortado por `max-width`. */
+    justify-self: center;
+    margin-left: auto;
+    margin-right: auto;
     /* Sin borde, aire ni sombra propios: el dibujo ya trae su filo y su brillo. */
     padding: 0;
     border: 0;

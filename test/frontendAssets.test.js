@@ -307,4 +307,56 @@ test('el rotulo SPIN se deriva del centro de la capsula del case', () => {
     'El texto debe respirar centrado dentro de su caja'
   );
 });
+test('la consola y el tablero comparten el mismo eje X en movil', () => {
+  const css = read(STYLE_PATH);
+
+  // 1) Tablero y consola ocupan la MISMA caja de la rejilla: las dos areas
+  //    abarcan las dos pistas, asi que su eje central no puede separarse.
+  const machineGrid = css.match(
+    /\.machine\s*\{[^}]*grid-template-areas:\s*"hero\s+hud"\s*"table table"\s*"console console";[^}]*\}/
+  );
+  assert.ok(machineGrid, 'La rejilla movil debe dar a `table` y `console` las dos pistas');
+  assert.match(machineGrid[0], /display:\s*grid;/, 'La maquina centra por rejilla');
+  assert.match(machineGrid[0], /grid-template-columns:\s*auto minmax\(0, 1fr\);/, 'Pistas de la cabecera');
+  assert.match(machineGrid[0], /justify-content:\s*stretch;/, 'La rejilla ocupa todo el ancho disponible');
+  assert.match(
+    machineGrid[0],
+    /padding:\s*0;/,
+    'Sin padding propio: el aire lateral lo pone `.app` y es simetrico'
+  );
+
+  // 2) El case se centra en esa caja de forma explicita. Antes solo lo hacia
+  //    `margin-inline: auto` sobre un `justify-self: stretch` heredado, asi que
+  //    cualquier padding o un `width` distinto lo empujaba a un lado.
+  const caseRule = css.match(/\.machine__side \.controls\s*\{[^}]*aspect-ratio:\s*1952 \/ 904;[^}]*\}/);
+  assert.ok(caseRule, 'El case debe declarar su relacion 1952/904');
+  const rule = caseRule[0];
+  assert.match(rule, /grid-area:\s*console;/, 'El case vive en la fila `console`');
+  assert.match(rule, /width:\s*100%;/, 'El ancho lo marca la fila');
+  assert.match(rule, /max-width:\s*calc\(32dvh \* 2\.1593\);/, 'El alto del viewport limita el case');
+  assert.match(rule, /justify-self:\s*center;/, 'Centrado por rejilla, no por un margen heredado');
+  assert.match(rule, /margin-left:\s*auto;/, 'Margen izquierdo automatico');
+  assert.match(rule, /margin-right:\s*auto;/, 'Margen derecho automatico');
+  assert.match(rule, /padding:\s*0;/, 'Sin aire lateral descompensado');
+  assert.match(rule, /border:\s*0;/, 'Sin filo que desplace el dibujo');
+  assert.match(rule, /align-self:\s*center;/, 'La fila no estira el case');
+  assert.match(
+    rule,
+    /background:\s*url\('\.\.\/assets\/consola_movil\.webp'\)\s*no-repeat\s*center\s*\/\s*contain;/,
+    'El dibujo se pinta centrado en su propia caja'
+  );
+
+  // 3) El tablero conserva su centrado dentro de la fila `table`.
+  assert.match(
+    css,
+    /\.machine__table \.board\s*\{[^}]*margin-inline:\s*auto;/,
+    'El tablero se centra en su fila'
+  );
+  assert.match(
+    css,
+    /\.board\s*\{[^}]*justify-self:\s*center;/,
+    'El tablero se centra por rejilla'
+  );
+});
+
 
