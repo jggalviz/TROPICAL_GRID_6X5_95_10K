@@ -20,6 +20,8 @@ const FORMAT_PATH = path.join(PUBLIC_DIR, 'src', 'js', 'format.js');
 const STYLE_PATH = path.join(PUBLIC_DIR, 'src', 'css', 'style.css');
 const INDEX_PATH = path.join(PUBLIC_DIR, 'index.html');
 const LOGO_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'PANA-CRUSH-LOGO.webp');
+const LOGO_MASTER_PATH = path.join(ROOT_DIR, 'design', 'pana_crush_ANIMACION-LOGO_final.gif');
+const PUBLIC_SRC_DIR = path.join(PUBLIC_DIR, 'src');
 
 const read = (file) => fs.readFileSync(file, 'utf8');
 
@@ -64,8 +66,8 @@ test('el logo animado se sirve ligero y esta centrado sobre el tablero', () => {
 
   assert.ok(fs.existsSync(LOGO_PATH), 'Falta public/src/assets/PANA-CRUSH-LOGO.webp');
 
-  // El peso es parte del contrato: el GIF original pesaba 480 KB. Se exige un
-  // WebP animado real (VP8X + ANIM + 5 ANMF) de bucle infinito y bajo 200 KB.
+  // El peso es parte del contrato: el maestro GIF pesa 476 KB y el WebP servido
+  // ronda los 135 KB: WebP animado real (VP8X + ANIM + 5 ANMF), bucle infinito.
   const binary = fs.readFileSync(LOGO_PATH);
   assert.equal(binary.toString('ascii', 0, 4), 'RIFF', 'El logo debe ser un contenedor RIFF/WebP');
   assert.equal(binary.toString('ascii', 8, 12), 'WEBP', 'El logo debe ser un contenedor RIFF/WebP');
@@ -79,6 +81,25 @@ test('el logo animado se sirve ligero y esta centrado sobre el tablero', () => {
 
   const frames = chunks.filter((chunk) => chunk.fourCC === 'ANMF');
   assert.equal(frames.length, 5, 'El logo debe conservar los 5 fotogramas del GIF');
+  // Los retardos son parte del contrato: el logo se mece con el mismo ritmo que
+  // el maestro (430/100/370/500/400 ms), no con un frame fijo ni reordenado.
+  const delays = frames.map((frame) => binary.readUIntLE(frame.offset + 20, 3));
+  assert.deepEqual(delays, [430, 100, 370, 500, 400], 'El logo debe conservar los retardos del maestro');
+
+  // Sin reescalar: el lienzo del WebP tiene que medir lo mismo que el GIF. Un
+  // upscale no se nota en pantalla y solo infla el peso que se descarga.
+  const master = fs.readFileSync(LOGO_MASTER_PATH);
+  assert.equal(master.toString('ascii', 0, 3), 'GIF', 'El maestro del logo debe ser el GIF original');
+  assert.equal(
+    binary.readUIntLE(chunks[0].offset + 12, 3) + 1,
+    master.readUInt16LE(6),
+    'El lienzo del WebP debe conservar el ancho del maestro'
+  );
+  assert.equal(
+    binary.readUIntLE(chunks[0].offset + 15, 3) + 1,
+    master.readUInt16LE(8),
+    'El lienzo del WebP debe conservar el alto del maestro'
+  );
 
   assert.ok(
     binary.length < 200 * 1024,
@@ -90,6 +111,25 @@ test('el logo animado se sirve ligero y esta centrado sobre el tablero', () => {
   assert.match(html, /alt="PANA CRUSH"/);
   assert.match(html, /width="240" height="240"/, 'El logo debe reservar 240x240 px como maximo');
 });
+
+test('el maestro del logo vive fuera de public/ y no viaja al CDN', () => {
+  // El GIF pesa 476 KB: si se queda en `public/src`, se publica en cada deploy y
+  // el directorio deja de ser solo lo que consume el cliente.
+  assert.ok(fs.existsSync(LOGO_MASTER_PATH), 'Falta el maestro design/pana_crush_ANIMACION-LOGO_final.gif');
+  assert.ok(fs.statSync(LOGO_MASTER_PATH).size > 0, 'El maestro del logo esta vacio');
+
+  const media = /\.(gif|png|jpe?g|webp|avif|psd|tiff?|mp4|mov|webm)$/i;
+  const strays = fs
+    .readdirSync(PUBLIC_SRC_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && media.test(entry.name))
+    .map((entry) => entry.name);
+  assert.deepEqual(
+    strays,
+    [],
+    `public/src solo debe contener carpetas publicadas; sobran: ${strays.join(', ')}`
+  );
+});
+
 
 test('la capa candyland mantiene el tablero protagonista y los caramelos grandes', () => {
   const css = read(STYLE_PATH);
