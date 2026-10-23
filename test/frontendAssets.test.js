@@ -604,6 +604,54 @@ test('el reset de pintura del case deja viva la respuesta al toque', () => {
   }
 });
 
+test('el GIRAR del case recupera el acabado candy: cristal y destellos', () => {
+  const css = read(STYLE_PATH);
+
+  // El reflejo cuelga de `#btn-spin` (solo ese pulsador) y se recorta al domo
+  // del disco: el velo de pulsación de la sección 7 sigue siendo suyo, pero la
+  // caja es la misma, así el `scale(0.94)` de 7bis no deforma el cristal.
+  const glass = css.match(/\.machine__side \.controls #btn-spin::before\s*\{[\s\S]*?\n  \}/);
+  assert.ok(glass, 'El GIRAR debe declarar su reflejo de cristal');
+  assert.match(
+    glass[0],
+    /linear-gradient\(180deg, rgba\(255, 255, 255, 0\.6\) 0%, rgba\(255, 255, 255, 0\) 60%\)/,
+    'El reflejo usa el degradado de cristal de la mitad superior'
+  );
+  assert.match(glass[0], /height: 41%;/, 'El reflejo se queda en la mitad superior del disco');
+  assert.match(glass[0], /mask-image: radial-gradient\(closest-side,/, 'El domo se difumina en el aro');
+  assert.match(glass[0], /pointer-events: none;/, 'El reflejo no captura el toque');
+
+  // Los tres `.spin-spark` del DOM vuelven a pintarse sobre el case, con el
+  // parpadeo `twinkle` y un ritmo distinto en cada esquina.
+  const sparks = css.match(/\.machine__side \.controls #btn-spin \.spin-spark\s*\{[\s\S]*?\n  \}/);
+  assert.ok(sparks, 'Los destellos del GIRAR deben repintarse');
+  assert.match(sparks[0], /display: block;/, 'El case ya no apaga los destellos');
+  assert.match(sparks[0], /animation: twinkle 2\.6s ease-in-out infinite;/, 'Parpadeo `twinkle` en el GIRAR');
+  assert.doesNotMatch(sparks[0], /display: none;/, 'Los destellos no pueden quedar ocultos');
+
+  for (const [spark, duration, delay] of [['--b', '3.2s', '0.9s'], ['--c', '3.8s', '1.7s']]) {
+    const rule = css.match(
+      new RegExp(`#btn-spin \\.spin-spark${spark}\\s*\\{[\\s\\S]*?\\n  \\}`)
+    );
+    assert.ok(rule, `El destello ${spark} debe tener su esquina`);
+    assert.match(rule[0], new RegExp(`animation-duration: ${duration};`), `${spark} parpadea a su ritmo`);
+    assert.match(rule[0], new RegExp(`animation-delay: ${delay};`), `${spark} entra desfasado`);
+  }
+
+  assert.match(
+    css,
+    /@keyframes twinkle \{\s*0%, 100% \{ opacity: 0\.3; transform: scale\(0\.8\); \}\s*50% \{ opacity: 1; transform: scale\(1\.2\); \}/,
+    'El parpadeo crece y se enciende hacia la mitad del ciclo'
+  );
+
+  // Con movimiento reducido los destellos siguen visibles pero quietos.
+  assert.match(
+    css,
+    /#btn-spin \.spin-spark \{\s*animation: none;\s*opacity: 0\.8;\s*\}/,
+    'Con `prefers-reduced-motion` los destellos se quedan fijos'
+  );
+});
+
 test('la zona tactil del GIRAR no se recorta con el alto del boton candy', () => {
   const css = read(STYLE_PATH);
 
