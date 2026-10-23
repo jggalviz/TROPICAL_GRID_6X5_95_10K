@@ -4840,6 +4840,23 @@ body.is-demo .machine__side .controls .balance::after {
     overflow: visible;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    /* Geometria de la pastilla del GIRAR, medida pixel a pixel sobre
+       `consola_movil.webp` (capturas a 8x en 390x844 y 360x640):
+         - la capsula oscura del fondo va del 67,7 % al 78,9 % del alto del
+           case, asi que su centro cae en el 73,3 %;
+         - el boton tactil que la cubre ocupa del 14,91 % al 78,98 %, es
+           decir, el 64,07 % del alto.
+       De ahi sale el `top` del rotulo `#spin-label` (ver mas abajo).
+       `--spin-optical` compensa que, con `line-height: 1`, las mayusculas se
+       dibujan por encima del centro de su caja de linea: 0,51 % del boton. */
+    --spin-case-capsule-center: 73.3;
+    --spin-case-btn-top: 14.91;
+    --spin-case-btn-h: 64.07;
+    --spin-optical: 0.51;
+    /* El case mantiene su proporcion aunque la fila del grid crezca: si se
+       estirara, el dibujo (`contain`) se centraria con aire y los controles
+       dejarian de coincidir con sus pastillas. */
+    align-self: center;
   }
 
   /* Los tres contenedores del Bloque 3 no pintan caja: sus hijos se colocan
@@ -5302,19 +5319,23 @@ body.is-demo .machine__side .controls .balance::after {
     pointer-events: none;
   }
 
-  /* Placa central GIRAR / GIRANDO…: la capsula oscura del case ocupa del
-     67,63 % al 78,78 % de su alto (medido sobre el arte), asi que su centro
-     esta en el 73,20 %; dentro del boton (14,91 % -> 78,98 %) eso es el 90,98 %.
-     El 91,64 % anade la correccion optica: con `line-height: 1` las mayusculas
-     se dibujan por encima del centro de la linea, de modo que la caja baja unos
-     dos decimos de punto para que el centro de la tinta coincida con el de la
-     capsula (verificado de 320 a 412 px de ancho: desvio <= 0,4 % del case).
+  /* Rotulo SPIN: clavado en el centro de la pastilla oscura del case.
+     `top` no es un numero suelto: se deriva de las tres medidas declaradas en
+     `.machine__side .controls` (centro de la capsula al 73,3 % del case, boton
+     del 14,91 % al 78,98 %) y suma `--spin-optical` para que el centro de la
+     tinta, y no el de la caja de linea, caiga sobre el centro de la capsula.
+     Resultado: 91,64 % del boton, equivalente al 73,63 % del case.
      `translate(-50%, -50%)` centra sin depender del tamano de fuente y el
-     `+ 0.07em` compensa el hueco que `letter-spacing` deja tras la ultima letra. */
+     `+ 0.07em` compensa el hueco que `letter-spacing` deja tras la ultima
+     letra. Verificado pixel a pixel: el aire sobre y bajo la tinta dentro de
+     la capsula queda igualado (desvio <= 0,2 px de 320 a 430 px de ancho). */
   .machine__side .controls #spin-label {
     position: absolute;
     left: 50%;
-    top: 91.64%;
+    top: calc(
+      (var(--spin-case-capsule-center) - var(--spin-case-btn-top)) /
+      var(--spin-case-btn-h) * 100% + var(--spin-optical) * 1%
+    );
     transform: translate(calc(-50% + 0.07em), -50%);
     display: flex;
     align-items: center;

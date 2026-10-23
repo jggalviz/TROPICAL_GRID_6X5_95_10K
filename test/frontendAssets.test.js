@@ -271,3 +271,40 @@ test('las fuentes candy se sirven como WOFF2 propios y sin bloquear el render', 
 });
 
 
+
+test('el rotulo SPIN se deriva del centro de la capsula del case', () => {
+  const css = read(STYLE_PATH);
+
+  // El case dibuja la pastilla del GIRAR entre el 67,7 % y el 78,9 % de su
+  // alto: su centro cae en el 73,3 %. El rotulo cuelga del boton tactil, asi
+  // que su `top` tiene que salir de ahi y no de un porcentaje suelto.
+  const caseVar = css.match(/--spin-case-capsule-center:\s*([\d.]+);/);
+  assert.ok(caseVar, 'El case debe declarar --spin-case-capsule-center');
+  const capsuleCenter = Number(caseVar[1]);
+  assert.ok(
+    capsuleCenter >= 73 && capsuleCenter <= 75,
+    `El centro de la capsula debe quedar entre el 73 % y el 75 % del case (es ${capsuleCenter})`
+  );
+
+  assert.match(
+    css,
+    /--spin-case-btn-top:\s*[\d.]+;[\s\S]*?--spin-case-btn-h:\s*[\d.]+;/,
+    'El boton tactil debe declarar donde empieza y cuanto ocupa dentro del case'
+  );
+  assert.match(
+    css,
+    /#spin-label\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*50%;[\s\S]*?top:\s*calc\([\s\S]*?--spin-case-capsule-center[\s\S]*?--spin-case-btn-top[\s\S]*?--spin-case-btn-h[\s\S]*?\);/,
+    'El `top` del rotulo debe calcularse desde las medidas del case'
+  );
+  assert.match(
+    css,
+    /#spin-label\s*\{[\s\S]*?transform:\s*translate\(calc\(-50% \+ 0\.07em\),\s*-50%\);/,
+    'El rotulo se centra con translate, sin depender del tamano de fuente'
+  );
+  assert.match(
+    css,
+    /#spin-label\s*\{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/,
+    'El texto debe respirar centrado dentro de su caja'
+  );
+});
+
