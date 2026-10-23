@@ -4804,18 +4804,17 @@ body.is-demo .machine__side .controls .balance::after {
    El case lo dibuja `assets/consola_movil.webp`; el DOM y los ids no cambian.
    Cada control real se coloca encima con porcentajes medidos sobre el lienzo
    recortado de la imagen (1952 x 904 px, relacion 2,159:1), asi que la
-   alineacion se mantiene en cualquier ancho de movil.
+   alineacion se mantiene en cualquier ancho de movil. Ese recorte lo produce
+   `npm run build:case` a partir de `design/consola_movil.webp`: el arte
+   llega con margenes transparentes y aqui entra ya limpio, sin deformar.
+   Las capsulas del case vienen rotuladas (MÁS · AUTO · GIRAR · APUESTA), asi
+   que los rotulos equivalentes del DOM se ocultan visualmente y se conservan
+   para lectores de pantalla (ver seccion 6).
 
-   Zonas medidas sobre ese lienzo:
-     SALDO    x 7,43 → 41,65    y 12,61 → 28,32
-     APUESTA  x 58,40 → 93,44   y 12,61 → 28,32
-     FEVER    centro 10,30 · 50,11   Ø 13,2
-     AUTO     centro 26,87 · 49,84   Ø 13,2
-     SPIN     centro 50,13 · 44,60   Ø 27,5
-     MENOS    centro 73,11 · 50,11   Ø 13,2
-     MAS      centro 89,53 · 49,84   Ø 13,2
-     Placas   MÁS 69,25·77,10 · AUTO 69,03·76,88 ·
-              GIRAR 67,59·78,98 · MAX 69,36·77,10
+   Orden visual de la carcasa:
+     fila 1 · SALDO (pantalla)              APUESTA (pantalla)
+     fila 2 · MÁS   AUTO        [ SPIN ]    −                 +
+     fila 3 · placas MÁS · AUTO · GIRAR · APUESTA  y estado del motor
    -------------------------------------------------------------------------- */
 
 @media (max-width: 899px) {
@@ -4895,6 +4894,10 @@ body.is-demo .machine__side .controls .balance::after {
     overflow: visible;
     transform: none;
     filter: none;
+    /* Respuesta tactil instantanea pero fluida: el hundimiento del `:active`
+       entra en 80 ms y vuelve igual de rapido al soltar. La transicion vive en
+       la capa tactil, no en los estados, para que el retorno tambien anime. */
+    transition: transform 0.08s ease, filter 0.08s ease, box-shadow 0.08s ease;
     cursor: pointer;
     -webkit-text-stroke: 0;
     text-shadow: none;
@@ -4915,9 +4918,9 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .controls .btn--spin .btn__spin-icon svg { display: none; }
 
   /* Sin desplazamientos ni filtros heredados: la capa tactil es invisible y no
-     debe moverse respecto al dibujo. */
+     debe moverse respecto al dibujo. El estado `:active` queda fuera de esta
+     lista a proposito: es el que hunde el boton (ver seccion 7bis). */
   .machine__side .controls .gbtn:hover:not(:disabled),
-  .machine__side .controls .gbtn:active:not(:disabled),
   .machine__side .controls .gbtn:disabled {
     transform: none;
     filter: none;
@@ -5109,14 +5112,10 @@ body.is-demo .machine__side .controls .balance::after {
     border: 0;
   }
 
+  /* La placa "MÁS" ya viene impresa en el case: el pseudo no pinta nada y el
+     nombre accesible del boton sigue siendo "Tropical Fever". */
   .machine__side .controls #btn-feature .btn__main::after {
-    content: "MÁS";
-    font-size: clamp(6.5px, 2vw, 8px);
-    font-weight: 900;
-    letter-spacing: 0.1em;
-    line-height: 1;
-    color: #ffd977;
-    text-shadow: 0 1px 1px rgba(40, 4, 0, 0.75);
+    content: none;
   }
 
   /* El coste no cabe en la placa: el estado `disabled` ya avisa del saldo. */
@@ -5144,13 +5143,18 @@ body.is-demo .machine__side .controls .balance::after {
     gap: 0;
   }
 
+  /* La placa "AUTO" tambien viene impresa en el case: el titulo se conserva
+     como texto solo para lectores de pantalla. */
   .machine__side .controls #btn-auto .btn__title {
-    font-size: clamp(6.5px, 2vw, 8px);
-    font-weight: 900;
-    letter-spacing: 0.09em;
-    line-height: 1;
-    color: #ffd977;
-    text-shadow: 0 1px 1px rgba(40, 4, 0, 0.75);
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
   /* Giros restantes como insignia dorada en el hombro del disco. */
@@ -5204,28 +5208,87 @@ body.is-demo .machine__side .controls .balance::after {
     -webkit-text-stroke: 0;
   }
 
+  /* La placa dice "APUESTA" en el case: "MAX" solo sobrevive para lectores de
+     pantalla (el boton ya declara `aria-label="Apuesta máxima"`). */
   .machine__side .controls__bet #btn-bet-max .chip__label {
-    font: inherit;
-    letter-spacing: inherit;
-    color: inherit;
-    text-shadow: inherit;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
-  /* --- Respuesta al toque: halo sobre el disco dibujado ------------------ */
+  /* --- Respuesta al toque · hundimiento del disco ------------------------
+     La zona tactil es transparente: el relieve lo dibuja el case, asi que al
+     pulsar no se puede mover el arte. El hundimiento se pinta encima del disco
+     con dos capas y con el encogimiento de la caja tactil (seccion 7bis):
+
+       1. bisel  · negro arriba, luz calida abajo: el disco parece entrar y el
+                   borde inferior recibe la luz de rebote;
+       2. brillo · radial blanco-dorado bajo el centro, donde el dedo empuja.
+
+     `--disc` recorta el velo dentro de la caja tactil (top right bottom left en
+     % de la caja). La caja esta ceñida a cada pulsador por el borde (258 px en
+     FEVER, AUTO, − y +; 537 px en el GIRAR, medidos sobre el lienzo de
+     1952 x 904), pero no siempre coincide con el disco pintado: FEVER y AUTO
+     incluyen su placa, el GIRAR incluye la punta de su capsula y MAX lleva una
+     caja tactil ampliada a proposito (140 px de alto frente a los 76 px del aro
+     de la placa). De ahi el inset de cada uno.
+
+     En los pulsadores circulares el borde del velo no se deja duro: una
+     `mask-image` radial lo difumina en el ultimo 16 %, asi el hundimiento se
+     funde con el bisel del case en vez de dibujar un circulo sobre el aro (ni
+     cruzar la corona, que se apoya sobre el disco del GIRAR). La placa APUESTA
+     conserva el borde nitido porque su aro dorado tambien lo es; por eso anula
+     la mascara. */
+  .machine__side .controls #btn-feature { --disc: 0 0 30.83% 0; }
+  .machine__side .controls #btn-auto { --disc: 0 0 30.91% 0; }
+  .machine__side .controls .btn--spin { --disc: 0 0 7.25% 0; }
+  .machine__side .controls__bet #btn-bet-down { --disc: 0; }
+  .machine__side .controls__bet #btn-bet-up { --disc: 0; }
+  .machine__side .controls__bet #btn-bet-max { --disc: 20% 7% 26% 7%; }
+
+  /* Los pulsadores circulares llevan el borde del velo difuminado: asi el
+     hundimiento se funde con el bisel del case y no aparece un circulo pintado
+     cruzando el aro (ni la corona del GIRAR, que se apoya sobre el disco). */
   .machine__side .controls #btn-feature:active:not(:disabled)::before,
   .machine__side .controls #btn-auto:active:not(:disabled)::before,
-  .machine__side .controls__bet .chip.gbtn:active:not(:disabled)::before,
+  .machine__side .controls__bet .chip.gbtn:active:not(:disabled)::before {
+    content: "";
+    display: block;
+    position: absolute;
+    inset: var(--disc);
+    border-radius: 50%;
+    background:
+      linear-gradient(180deg, rgba(18, 5, 0, 0.58) 0%, rgba(18, 5, 0, 0.2) 48%, rgba(255, 240, 190, 0.26) 100%),
+      radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.34), rgba(255, 236, 160, 0.1) 46%, rgba(255, 236, 160, 0) 68%);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45);
+    -webkit-mask-image: radial-gradient(closest-side, #000 84%, rgba(0, 0, 0, 0.7) 93%, transparent 100%);
+    mask-image: radial-gradient(closest-side, #000 84%, rgba(0, 0, 0, 0.7) 93%, transparent 100%);
+    pointer-events: none;
+  }
+
+  /* La placa APUESTA (MAX) es una pildora: bisel y borde nitidos, como el aro
+     dorado que la enmarca, y el hundimiento la sigue. */
   .machine__side .controls__bet #btn-bet-max:active:not(:disabled)::before {
     content: "";
     display: block;
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.45), rgba(255, 240, 180, 0.12) 62%, transparent 76%);
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4), 0 0 18px rgba(255, 206, 90, 0.55);
+    inset: var(--disc);
+    border-radius: 999px;
+    background:
+      linear-gradient(180deg, rgba(18, 5, 0, 0.58) 0%, rgba(18, 5, 0, 0.2) 48%, rgba(255, 240, 190, 0.26) 100%),
+      radial-gradient(ellipse at 50% 58%, rgba(255, 255, 255, 0.3), rgba(255, 236, 160, 0.09) 52%, rgba(255, 236, 160, 0) 78%);
+    box-shadow:
+      inset 0 2px 6px rgba(0, 0, 0, 0.45),
+      0 0 0 1.5px rgba(255, 255, 255, 0.26);
+    /* La pildora no hereda el difuminado circular del resto de pulsadores. */
+    -webkit-mask-image: none;
+    mask-image: none;
     pointer-events: none;
   }
 
@@ -5234,12 +5297,9 @@ body.is-demo .machine__side .controls .balance::after {
     content: "";
     display: block;
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    aspect-ratio: 1;
+    inset: var(--disc);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(28, 8, 0, 0.45), rgba(28, 8, 0, 0.24));
+    background: radial-gradient(circle at 50% 42%, rgba(28, 8, 0, 0.5), rgba(28, 8, 0, 0.26));
     pointer-events: none;
   }
 }
@@ -5258,12 +5318,22 @@ body.is-demo .machine__side .controls .balance::after {
     top: 14.91%;
     width: 27.5%;
     height: 64.07%;
+    /* El `max-height: 130px` del boton candy recortaba la caja en cuanto el
+       case pasaba de ~205 px de ancho (768, 899): el disco del arte mide el
+       27,5 % del ancho, asi que a 768 son 194 px y la zona tactil se quedaba en
+       130, sin cubrir el tercio inferior del disco. El alto real lo manda el
+       case, no la regla de escritorio. */
+    max-height: none;
     border-radius: 50%;
   }
 
   /* Cualquier pintura heredada del boton candy (fondo rosa, halos, latido,
-     sombra de pulsacion o velo de `is-busy`) se apaga: el disco lo dibuja el
-     case y el boton solo recibe el toque. Los ids ganan a cualquier estado. */
+     sombra de pulsacion o velo de `is-busy`) se apaga en TODOS los estados,
+     `:active` incluido: si se dejara viva, el `inset` blanco del boton candy
+     taparia el disco del case con un velo al pulsar. Los ids ganan a cualquier
+     regla de clase, asi que este reset manda.
+     Solo apaga pintura: ni `transform` ni `filter`, que son la respuesta
+     fisica de la seccion 7bis. */
   .machine__side .controls #btn-spin,
   .machine__side .controls #btn-spin:hover:not(:disabled),
   .machine__side .controls #btn-spin:active:not(:disabled),
@@ -5290,6 +5360,22 @@ body.is-demo .machine__side .controls .balance::after {
     box-shadow: none;
     border: 0;
     animation: none;
+  }
+
+  /* En reposo (y con `hover` de raton, que en tactil se queda pegado tras el
+     toque) la capa tactil tampoco se desplaza ni filtra: el disco del case no
+     debe moverse ni un pixel. `:not(:active)` es obligatorio para no cancelar
+     el hundimiento mientras el dedo sigue apoyado. */
+  .machine__side .controls #btn-spin:hover:not(:disabled):not(:active),
+  .machine__side .controls #btn-spin.is-busy,
+  .machine__side .controls #btn-spin.gbtn.is-busy,
+  .machine__side .controls #btn-spin:disabled,
+  .machine__side .controls #btn-feature:hover:not(:disabled):not(:active),
+  .machine__side .controls #btn-feature:disabled,
+  .machine__side .controls #btn-auto:hover:not(:disabled):not(:active),
+  .machine__side .controls #btn-bet-down:hover:not(:disabled):not(:active),
+  .machine__side .controls #btn-bet-up:hover:not(:disabled):not(:active),
+  .machine__side .controls #btn-bet-max:hover:not(:disabled):not(:active) {
     transform: none;
     filter: none;
   }
@@ -5347,7 +5433,15 @@ body.is-demo .machine__side .controls .balance::after {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* El rótulo "GIRAR" ya está impreso en la placa del case. El texto del DOM
+       se queda solo para lectores de pantalla y lectores de estado: invisible,
+       fuera del flujo de pintado y sin capturar toques. */
+    width: 1px;
+    height: 1px;
+    margin: -1px;
     padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
     border: 0;
     border-radius: 0;
     font-size: clamp(7.5px, 2.3vw, 10.5px);
@@ -5362,19 +5456,22 @@ body.is-demo .machine__side .controls .balance::after {
     text-shadow: 0 1px 1px rgba(40, 4, 0, 0.8);
   }
 
-  /* Pulsacion: el aro se cierra y el disco se ilumina. */
+  /* Pulsacion: el disco se hunde y su cara se ilumina.
+     Mismo bisel + brillo que los discos laterales, con el recorte del disco
+     grande y el borde difuminado para que el velo se funda con el aro y con la
+     corona que se apoya sobre el. */
   .machine__side .controls .btn--spin:active:not(:disabled)::before {
     content: "";
     display: block;
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    aspect-ratio: 1;
+    inset: var(--disc);
     border-radius: 50%;
-    background: radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.5), rgba(255, 236, 160, 0.12) 62%, transparent 78%);
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45), 0 0 26px rgba(255, 206, 90, 0.65);
-    transform: scale(0.95);
+    background:
+      linear-gradient(180deg, rgba(18, 5, 0, 0.6) 0%, rgba(18, 5, 0, 0.16) 52%, rgba(255, 240, 190, 0.18) 100%),
+      radial-gradient(circle at 50% 64%, rgba(255, 255, 255, 0.26), rgba(255, 236, 160, 0.08) 44%, rgba(255, 236, 160, 0) 66%);
+    box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.46);
+    -webkit-mask-image: radial-gradient(closest-side, #000 82%, rgba(0, 0, 0, 0.68) 92%, transparent 100%);
+    mask-image: radial-gradient(closest-side, #000 82%, rgba(0, 0, 0, 0.68) 92%, transparent 100%);
     pointer-events: none;
   }
 
@@ -5386,13 +5483,37 @@ body.is-demo .machine__side .controls .balance::after {
     content: "";
     display: block;
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    aspect-ratio: 1;
+    inset: var(--disc);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(28, 8, 0, 0.42), rgba(28, 8, 0, 0.2));
+    background: radial-gradient(circle at 50% 40%, rgba(28, 8, 0, 0.46), rgba(28, 8, 0, 0.22));
     pointer-events: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7bis) Respuesta fisica al toque · el pulsador se hunde hacia su centro
+   --------------------------------------------------------------------------
+   `transform` sobre la capa tactil (6 % menos + 1 px) con el `transform-origin`
+   clavado en el centro del disco: el aro y el bisel del `::before` se cierran
+   hacia el pulsador fisico, no hacia el centro de una caja que en FEVER y AUTO
+   tambien contiene la placa. `filter` ilumina la tinta y el halo al contacto.
+   Todo entra y sale en 80 ms (la transicion se declara en la capa tactil), la
+   misma sensacion que un boton de arcade con muelle.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .machine__side .controls #btn-feature { transform-origin: 50% 34%; }
+  .machine__side .controls #btn-auto { transform-origin: 50% 34%; }
+  .machine__side .controls .btn--spin { transform-origin: 50% 46%; }
+
+  .machine__side .controls #btn-feature:active:not(:disabled),
+  .machine__side .controls #btn-auto:active:not(:disabled),
+  .machine__side .controls .btn--spin:active:not(:disabled),
+  .machine__side .controls__bet #btn-bet-down:active:not(:disabled),
+  .machine__side .controls__bet #btn-bet-up:active:not(:disabled),
+  .machine__side .controls__bet #btn-bet-max:active:not(:disabled) {
+    transform: scale(0.94) translateY(1px);
+    filter: brightness(1.06) saturate(1.04);
   }
 }
 

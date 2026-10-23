@@ -13,6 +13,7 @@
     "dev": "node --watch server/index.js",
     "predev": "node scripts/build-index-html.js",
     "build:index": "node scripts/build-index-html.js",
+    "build:case": "node scripts/build-case-asset.js",
     "vercel-build": "node scripts/build-index-html.js",
     "simulate": "node scripts/simulate.js",
     "simulate:validate": "node scripts/simulate.js --rounds=20000 --mode=base --crypto",
@@ -37,5 +38,8 @@
     "supabase",
     "express"
   ],
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "sharp": "^0.35.5"
+  }
 }

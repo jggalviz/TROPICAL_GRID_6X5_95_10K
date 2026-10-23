@@ -10,3 +10,4 @@ dist/
 .vercel
 .sim/
 .sim-chrome/
+tmp-case/

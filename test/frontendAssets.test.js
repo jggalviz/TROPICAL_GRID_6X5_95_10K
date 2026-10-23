@@ -358,5 +358,196 @@ test('la consola y el tablero comparten el mismo eje X en movil', () => {
     'El tablero se centra por rejilla'
   );
 });
+test('el case se sirve recortado a 1952x904 y el arte master queda fuera de public/', () => {
+  const asset = path.join(PUBLIC_DIR, 'src', 'assets', 'consola_movil.webp');
+
+  assert.ok(fs.existsSync(asset), 'Falta public/src/assets/consola_movil.webp');
+  const binary = fs.readFileSync(asset);
+  assert.equal(binary.toString('ascii', 0, 4), 'RIFF', 'El case debe ser un contenedor RIFF/WebP');
+  assert.equal(binary.toString('ascii', 8, 12), 'WEBP', 'El case debe ser un contenedor RIFF/WebP');
+
+  // El CSS coloca cada control en % de una caja 1952 x 904: si el asset cambia
+  // de lienzo, `contain` lo centra con aire y los pulsadores se salen del arte.
+  const canvas = webpChunks(binary).find((chunk) => chunk.fourCC === 'VP8X');
+  assert.ok(canvas, 'El case debe declarar caracteristicas extendidas (VP8X)');
+  const width = binary.readUIntLE(canvas.offset + 12, 3) + 1;
+  const height = binary.readUIntLE(canvas.offset + 15, 3) + 1;
+  assert.equal(`${width}x${height}`, '1952x904', 'El lienzo del case debe ser exactamente 1952x904');
+
+  // Los degradados dorados hacen banding por debajo de q=92; el tope deja aire
+  // para subir la calidad pero no para servir un PNG disfrazado de WebP.
+  assert.ok(
+    binary.length < 300 * 1024,
+    `El case debe pesar menos de 300 KB (pesa ${(binary.length / 1024).toFixed(1)} KB)`
+  );
+
+  // El PNG/WebP original trae margenes transparentes y pesa 3,3 MB: se publica
+  // todo `public/src/**`, asi que el master vive en `design/`.
+  assert.ok(
+    fs.existsSync(path.join(ROOT_DIR, 'design', 'consola_movil.webp')),
+    'El arte master debe estar en design/consola_movil.webp'
+  );
+  for (const stray of ['consola_movil.png', 'consola_movil.webp', 'consola_movil_sin_iconos.webp']) {
+    assert.ok(
+      !fs.existsSync(path.join(PUBLIC_DIR, 'src', stray)),
+      `${stray} no debe servirse desde public/src`
+    );
+  }
+});
+
+test('el pulsador se hunde en 80 ms al tocarlo y vuelve con la misma curva', () => {
+  const css = read(STYLE_PATH);
+
+  // La transicion vive en la capa tactil (no en `:active`), asi el retorno al
+  // soltar tambien anima y el hundimiento no aparece de golpe.
+  const touchLayer = css.match(/\.machine__side \.controls \.gbtn,[\s\S]*?\}/);
+  assert.ok(touchLayer, 'La capa tactil del case debe declarar sus reglas base');
+  assert.match(
+    touchLayer[0],
+    /transition:\s*transform 0\.08s ease,\s*filter 0\.08s ease,\s*box-shadow 0\.08s ease;/,
+    'El hundimiento entra y sale en 80 ms'
+  );
+
+  // Los seis pulsadores comparten la misma respuesta fisica: 6 % menos y 1 px
+  // hacia abajo, con un punto de brillo que ilumina la tinta del case.
+  const press = css.match(
+    /\.machine__side \.controls #btn-feature:active:not\(:disabled\),[\s\S]*?transform: scale\(0\.94\) translateY\(1px\);[\s\S]*?filter: brightness\(1\.06\) saturate\(1\.04\);\s*\}/
+  );
+  assert.ok(press, 'La seccion 7bis debe hundir el pulsador con `scale(0.94)`');
+  for (const id of ['#btn-feature', '#btn-auto', '.btn--spin', '#btn-bet-down', '#btn-bet-up', '#btn-bet-max']) {
+    assert.ok(press[0].includes(id), `El hundimiento debe cubrir ${id}`);
+  }
+
+  // El origen se clava en el centro del disco: en FEVER y AUTO la caja tambien
+  // contiene la placa, asi que encoger desde el centro de la caja desplazaria
+  // el bisel hacia abajo; el GIRAR lleva su disco en la mitad superior.
+  assert.match(
+    css,
+    /#btn-feature\s*\{\s*transform-origin:\s*50% 34%;\s*\}/,
+    'FEVER encoge hacia su disco, no hacia la placa'
+  );
+  assert.match(
+    css,
+    /#btn-auto\s*\{\s*transform-origin:\s*50% 34%;\s*\}/,
+    'AUTO encoge hacia su disco, no hacia la placa'
+  );
+  assert.match(
+    css,
+    /\.btn--spin\s*\{\s*transform-origin:\s*50% 46%;\s*\}/,
+    'El GIRAR encoge hacia el centro de su disco'
+  );
+});
+
+
+test('el velo del hundimiento se recorta al disco de cada pulsador', () => {
+  const css = read(STYLE_PATH);
+
+  // `--disc` (top right bottom left, en % de la caja tactil) evita que el velo
+  // se salga del disco: FEVER/AUTO incluirian su placa, el GIRAR la punta de la
+  // capsula y MAX la caja ampliada (140 px de alto frente a 76 px del aro).
+  const discs = {
+    '.machine__side .controls #btn-feature': '0 0 30.83% 0',
+    '.machine__side .controls #btn-auto': '0 0 30.91% 0',
+    '.machine__side .controls .btn--spin': '0 0 7.25% 0',
+    '.machine__side .controls__bet #btn-bet-down': '0',
+    '.machine__side .controls__bet #btn-bet-up': '0',
+    '.machine__side .controls__bet #btn-bet-max': '20% 7% 26% 7%',
+  };
+  for (const [selector, disc] of Object.entries(discs)) {
+    const rule = css.match(
+      new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{\\s*--disc:\\s*([^;]+);`)
+    );
+    assert.ok(rule, `${selector} debe declarar su recorte --disc`);
+    assert.equal(rule[1].trim(), disc, `${selector} recorta el velo a su disco`);
+  }
+
+  // El velo es un `::before` absoluto que se ciñe con `inset: var(--disc)`.
+  assert.match(
+    css,
+    /#btn-feature:active:not\(:disabled\)::before,[\s\S]*?#btn-auto:active:not\(:disabled\)::before,[\s\S]*?\.chip\.gbtn:active:not\(:disabled\)::before\s*\{[\s\S]*?inset: var\(--disc\);[\s\S]*?pointer-events: none;/,
+    'El velo de los pulsadores circulares se recorta con `--disc` y no captura el toque'
+  );
+
+  // Un borde duro dibujaria un circulo sobre el aro (y cruzaria la corona del
+  // GIRAR), asi que los circulares difuminan el ultimo tramo con una mascara.
+  assert.match(
+    css,
+    /#btn-feature:active:not\(:disabled\)::before,[\s\S]*?mask-image: radial-gradient\(closest-side,[\s\S]*?\);/,
+    'El velo circular debe difuminar su borde con una mascara radial'
+  );
+  assert.match(
+    css,
+    /\.btn--spin:active:not\(:disabled\)::before\s*\{[\s\S]*?mask-image: radial-gradient\(closest-side,/,
+    'El GIRAR tambien difumina el borde de su velo'
+  );
+
+  // La placa APUESTA es una pildora con aro dorado nitido: borde recto y sin
+  // mascara heredada del grupo circular.
+  const maxVeil = css.match(/#btn-bet-max:active:not\(:disabled\)::before\s*\{[\s\S]*?\}/);
+  assert.ok(maxVeil, 'La placa APUESTA debe tener su propio velo');
+  assert.match(maxVeil[0], /border-radius: 999px;/, 'APUESTA se hunde como pildora');
+  assert.match(maxVeil[0], /mask-image: none;/, 'La pildora anula la mascara circular');
+});
+
+
+test('el reset de pintura del case deja viva la respuesta al toque', () => {
+  const css = read(STYLE_PATH);
+
+  // El boton candy pinta fondo, halos y un `inset` blanco en `:active`; si el
+  // reset no incluyera ese estado, el velo candy taparia el disco del case.
+  const reset = css.match(
+    /\.machine__side \.controls #btn-spin,\s*\n[\s\S]*?\{\s*background: none;\s*box-shadow: none;\s*border: 0;\s*animation: none;\s*\}/
+  );
+  assert.ok(reset, 'Debe existir un reset de pintura por id para la capa tactil');
+  for (const selector of [
+    '#btn-spin:active:not(:disabled)',
+    '#btn-feature:active:not(:disabled)',
+    '#btn-auto:active:not(:disabled)',
+    '#btn-bet-down:active:not(:disabled)',
+    '#btn-bet-up:active:not(:disabled)',
+    '#btn-bet-max:active:not(:disabled)',
+  ]) {
+    assert.ok(reset[0].includes(selector), `El reset debe cubrir ${selector}, no solo el reposo`);
+  }
+  assert.doesNotMatch(
+    reset[0],
+    /transform:|filter:/,
+    'El reset solo apaga pintura: `transform` y `filter` son el hundimiento'
+  );
+
+  // El reset de reposo/hover se excluye de `:active` para no cancelar el
+  // hundimiento mientras el dedo sigue apoyado (el hover tactil se queda pegado).
+  const restReset = css.match(
+    /\.machine__side \.controls #btn-spin:hover:not\(:disabled\):not\(:active\),[\s\S]*?\{\s*transform: none;\s*filter: none;\s*\}/
+  );
+  assert.ok(restReset, 'El reset de reposo debe usar `:not(:active)`');
+  for (const selector of [
+    '#btn-feature:hover:not(:disabled):not(:active)',
+    '#btn-auto:hover:not(:disabled):not(:active)',
+    '#btn-bet-down:hover:not(:disabled):not(:active)',
+    '#btn-bet-up:hover:not(:disabled):not(:active)',
+    '#btn-bet-max:hover:not(:disabled):not(:active)',
+  ]) {
+    assert.ok(restReset[0].includes(selector), `El reset de reposo debe cubrir ${selector}`);
+  }
+});
+
+test('la zona tactil del GIRAR no se recorta con el alto del boton candy', () => {
+  const css = read(STYLE_PATH);
+
+  // El boton candy limita su alto a 130 px: por debajo de 768 px de ancho el
+  // case mide menos y no se notaba, pero a 768/899 el disco mide ~194 px y la
+  // zona tactil se quedaba corta, sin cubrir el tercio inferior del GIRAR.
+  assert.match(
+    css,
+    /\.btn--spin\.gbtn\s*\{[\s\S]*?max-height: none;/,
+    'En el case el alto del GIRAR lo manda el dibujo, no la regla de escritorio'
+  );
+  assert.match(
+    css,
+    /\.machine__side \.controls \.btn--spin\s*\{[\s\S]*?max-height: 130px;/,
+    'La regla de escritorio del boton candy conserva su limite propio'
+  );
+});
 
 
