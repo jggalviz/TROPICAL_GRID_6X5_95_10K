@@ -436,33 +436,43 @@ test('los rotulos del case no se repintan: el DOM solo guarda nombre accesible y
 test('la consola y el tablero comparten el mismo eje X en movil', () => {
   const css = read(STYLE_PATH);
 
-  // 1) Tablero y consola ocupan la MISMA caja de la rejilla: las dos areas
-  //    abarcan las dos pistas, asi que su eje central no puede separarse.
+  // 1) Una sola columna: el marco (marca + HUD + tablero) y la consola son las
+  //    dos filas de la maquina y las dos se ciñen a `--m-w`, asi que su eje X
+  //    no puede separarse.
   const machineGrid = css.match(
-    /\.machine\s*\{[^}]*grid-template-areas:\s*"hero\s+hud"\s*"table table"\s*"console console";[^}]*\}/
+    /\.machine\s*\{[^}]*grid-template-areas:\s*"frame"\s*"console";[^}]*\}/
   );
-  assert.ok(machineGrid, 'La rejilla movil debe dar a `table` y `console` las dos pistas');
+  assert.ok(machineGrid, 'La maquina movil debe apilar marco y consola en una columna');
   assert.match(machineGrid[0], /display:\s*grid;/, 'La maquina centra por rejilla');
-  assert.match(machineGrid[0], /grid-template-columns:\s*auto minmax\(0, 1fr\);/, 'Pistas de la cabecera');
-  assert.match(machineGrid[0], /justify-content:\s*stretch;/, 'La rejilla ocupa todo el ancho disponible');
+  assert.match(machineGrid[0], /grid-template-columns:\s*minmax\(0, 1fr\);/, 'Una sola pista de ancho');
+  assert.match(machineGrid[0], /justify-items:\s*center;/, 'Las dos filas se centran en la columna');
   assert.match(
     machineGrid[0],
     /padding:\s*0;/,
     'Sin padding propio: el aire lateral lo pone `.app` y es simetrico'
   );
+  // El ancho sale del alto libre menos la separacion, repartido entre la
+  // relacion del marco (1 / 1,4081) y la de la consola (1 / 2,5729).
+  assert.match(
+    machineGrid[0],
+    /--m-w:\s*min\(100%,\s*calc\(\(100cqh - clamp\(4px, 1\.2dvh, 10px\)\) \/ 1\.0989\)\);/,
+    'El ancho de la maquina descuenta marco + separacion + consola del alto libre'
+  );
 
-  // 2) El case se centra en esa caja de forma explicita. Antes solo lo hacia
-  //    `margin-inline: auto` sobre un `justify-self: stretch` heredado, asi que
-  //    cualquier padding o un `width` distinto lo empujaba a un lado.
-  const caseRule = css.match(/\.machine__side \.controls\s*\{[^}]*aspect-ratio:\s*1952 \/ 904;[^}]*\}/);
-  assert.ok(caseRule, 'El case debe declarar su relacion 1952/904');
+  // 2) Las dos piezas se miden con esa unidad y con la relacion exacta de su
+  //    lienzo (`contain` sobre una caja con esa relacion llena el 100%).
+  const frameRule = css.match(/\.machine__table\s*\{[^}]*aspect-ratio:\s*1325 \/ 941;[^}]*\}/);
+  assert.ok(frameRule, 'El marco debe declarar su relacion 1325/941');
+  assert.match(frameRule[0], /width:\s*var\(--m-w\);/, 'El marco se mide con `--m-w`');
+
+  const caseRule = css.match(
+    /\.machine__side \.controls\s*\{[^}]*aspect-ratio:\s*1783 \/ 693;[^}]*\}/
+  );
+  assert.ok(caseRule, 'La consola debe declarar su relacion 1783/693');
   const rule = caseRule[0];
-  assert.match(rule, /grid-area:\s*console;/, 'El case vive en la fila `console`');
-  assert.match(rule, /width:\s*100%;/, 'El ancho lo marca la fila');
-  assert.match(rule, /max-width:\s*calc\(32dvh \* 2\.1593\);/, 'El alto del viewport limita el case');
-  assert.match(rule, /justify-self:\s*center;/, 'Centrado por rejilla, no por un margen heredado');
-  assert.match(rule, /margin-left:\s*auto;/, 'Margen izquierdo automatico');
-  assert.match(rule, /margin-right:\s*auto;/, 'Margen derecho automatico');
+  assert.match(rule, /grid-area:\s*console;/, 'La consola vive en la fila `console`');
+  assert.match(rule, /width:\s*var\(--m-w\);/, 'La consola comparte el ancho exacto del marco');
+  assert.match(rule, /justify-self:\s*center;/, 'Centrada por rejilla, no por un margen heredado');
   assert.match(rule, /padding:\s*0;/, 'Sin aire lateral descompensado');
   assert.match(rule, /border:\s*0;/, 'Sin filo que desplace el dibujo');
   assert.match(rule, /align-self:\s*center;/, 'La fila no estira el case');
@@ -472,53 +482,75 @@ test('la consola y el tablero comparten el mismo eje X en movil', () => {
     'El dibujo se pinta centrado en su propia caja'
   );
 
-  // 3) El tablero conserva su centrado dentro de la fila `table`.
+  // 3) El tablero tapa la ventana transparente del marco con % del recorte
+  //    (medido: x 8,4-94,1 %, y 26,1-98,1 %), con un pelo de aire por fuera
+  //    para que su filo se meta bajo el borde rosa y no asome el fondo.
   assert.match(
     css,
-    /\.machine__table \.board\s*\{[^}]*margin-inline:\s*auto;/,
-    'El tablero se centra en su fila'
-  );
-  assert.match(
-    css,
-    /\.board\s*\{[^}]*justify-self:\s*center;/,
-    'El tablero se centra por rejilla'
+    /\.machine__table \.board\s*\{[^}]*position:\s*absolute;[^}]*left:\s*8\.35%;[^}]*top:\s*26%;[^}]*width:\s*85\.9%;[^}]*height:\s*72\.3%;[^}]*\}/,
+    'El tablero se coloca en la ventana del marco, no en el flujo de la fila'
   );
 });
-test('el case se sirve recortado a 1952x904 y el arte master queda fuera de public/', () => {
-  const asset = path.join(PUBLIC_DIR, 'src', 'assets', 'consola_movil.webp');
+test('el marco y la consola se sirven con su lienzo exacto y los maestros quedan fuera de public/', () => {
+  // Cada pieza se pinta con `background: url(...) center / contain` sobre una
+  // caja con la relacion de su lienzo; si el WebP cambia de medidas, `contain`
+  // lo centra con aire y los controles se salen del arte.
+  const pieces = [
+    { name: 'marco_movil', size: '1325x941', max: 460 * 1024 },
+    { name: 'consola_movil', size: '1783x693', max: 300 * 1024 }
+  ];
 
-  assert.ok(fs.existsSync(asset), 'Falta public/src/assets/consola_movil.webp');
-  const binary = fs.readFileSync(asset);
-  assert.equal(binary.toString('ascii', 0, 4), 'RIFF', 'El case debe ser un contenedor RIFF/WebP');
-  assert.equal(binary.toString('ascii', 8, 12), 'WEBP', 'El case debe ser un contenedor RIFF/WebP');
+  for (const { name, size, max } of pieces) {
+    const asset = path.join(PUBLIC_DIR, 'src', 'assets', `${name}.webp`);
+    assert.ok(fs.existsSync(asset), `Falta public/src/assets/${name}.webp`);
+    const binary = fs.readFileSync(asset);
+    assert.equal(binary.toString('ascii', 0, 4), 'RIFF', `${name} debe ser un contenedor RIFF/WebP`);
+    assert.equal(binary.toString('ascii', 8, 12), 'WEBP', `${name} debe ser un contenedor RIFF/WebP`);
 
-  // El CSS coloca cada control en % de una caja 1952 x 904: si el asset cambia
-  // de lienzo, `contain` lo centra con aire y los pulsadores se salen del arte.
-  const canvas = webpChunks(binary).find((chunk) => chunk.fourCC === 'VP8X');
-  assert.ok(canvas, 'El case debe declarar caracteristicas extendidas (VP8X)');
-  const width = binary.readUIntLE(canvas.offset + 12, 3) + 1;
-  const height = binary.readUIntLE(canvas.offset + 15, 3) + 1;
-  assert.equal(`${width}x${height}`, '1952x904', 'El lienzo del case debe ser exactamente 1952x904');
+    const canvas = webpChunks(binary).find((chunk) => chunk.fourCC === 'VP8X');
+    assert.ok(canvas, `${name} debe declarar caracteristicas extendidas (VP8X)`);
+    const width = binary.readUIntLE(canvas.offset + 12, 3) + 1;
+    const height = binary.readUIntLE(canvas.offset + 15, 3) + 1;
+    assert.equal(`${width}x${height}`, size, `El lienzo de ${name} debe ser exactamente ${size}`);
 
-  // Los degradados dorados hacen banding por debajo de q=92; el tope deja aire
-  // para subir la calidad pero no para servir un PNG disfrazado de WebP.
-  assert.ok(
-    binary.length < 300 * 1024,
-    `El case debe pesar menos de 300 KB (pesa ${(binary.length / 1024).toFixed(1)} KB)`
-  );
-
-  // El PNG/WebP original trae margenes transparentes y pesa 3,3 MB: se publica
-  // todo `public/src/**`, asi que el master vive en `design/`.
-  assert.ok(
-    fs.existsSync(path.join(ROOT_DIR, 'design', 'consola_movil.webp')),
-    'El arte master debe estar en design/consola_movil.webp'
-  );
-  for (const stray of ['consola_movil.png', 'consola_movil.webp', 'consola_movil_sin_iconos.webp']) {
+    // Los degradados dorados hacen banding por debajo de q=92 en la consola; el
+    // tope deja aire para subir la calidad sin servir un PNG disfrazado de WebP.
     assert.ok(
-      !fs.existsSync(path.join(PUBLIC_DIR, 'src', stray)),
-      `${stray} no debe servirse desde public/src`
+      binary.length < max,
+      `${name} debe pesar menos de ${max / 1024} KB (pesa ${(binary.length / 1024).toFixed(1)} KB)`
+    );
+
+    // Los maestros llegan con margenes transparentes y pesan MB: se publica
+    // todo `public/src/**`, asi que viven en `design/` y solo se sirve el
+    // recorte que produce `npm run build:art`.
+    assert.ok(
+      fs.existsSync(path.join(ROOT_DIR, 'design', `${name}.png`)),
+      `El arte master debe estar en design/${name}.png`
+    );
+    for (const stray of [`${name}.png`, `${name}.webp`]) {
+      assert.ok(
+        !fs.existsSync(path.join(PUBLIC_DIR, 'src', stray)),
+        `${stray} no debe servirse desde public/src`
+      );
+    }
+  }
+
+  // El script que recorta las dos piezas declara los mismos lienzos que el CSS.
+  const build = fs.readFileSync(path.join(ROOT_DIR, 'scripts', 'build-mobile-art.js'), 'utf8');
+  for (const { name, size } of pieces) {
+    const [w, h] = size.split('x');
+    assert.match(
+      build,
+      new RegExp(`name: '${name}',\\s*canvas: \\{ width: ${w}, height: ${h} \\}`),
+      `build:art debe recortar ${name} a ${size}`
     );
   }
+
+  // La variante sin iconos del arte no es la que se publica.
+  assert.ok(
+    !fs.existsSync(path.join(PUBLIC_DIR, 'src', 'assets', 'consola_movil_sin_iconos.webp')),
+    'La variante sin iconos no debe servirse desde public/src/assets'
+  );
 });
 
 test('el pulsador se hunde en 80 ms al tocarlo y vuelve con la misma curva', () => {
@@ -544,40 +576,73 @@ test('el pulsador se hunde en 80 ms al tocarlo y vuelve con la misma curva', () 
     assert.ok(press[0].includes(id), `El hundimiento debe cubrir ${id}`);
   }
 
-  // El origen se clava en el centro del disco: en FEVER y AUTO la caja tambien
-  // contiene la placa, asi que encoger desde el centro de la caja desplazaria
-  // el bisel hacia abajo; el GIRAR lleva su disco en la mitad superior.
+  // El origen se clava en el centro de la caja tactil, que ahora es el bbox
+  // medido del disco: el hundimiento cierra el bisel hacia el pulsador fisico y
+  // no desplaza el arte ni un pixel.
   assert.match(
     css,
-    /#btn-feature\s*\{\s*transform-origin:\s*50% 34%;\s*\}/,
-    'FEVER encoge hacia su disco, no hacia la placa'
+    /#btn-feature\s*\{\s*transform-origin:\s*50% 50%;\s*\}/,
+    'FEVER encoge hacia el centro de su disco'
   );
   assert.match(
     css,
-    /#btn-auto\s*\{\s*transform-origin:\s*50% 34%;\s*\}/,
-    'AUTO encoge hacia su disco, no hacia la placa'
+    /#btn-auto\s*\{\s*transform-origin:\s*50% 50%;\s*\}/,
+    'AUTO encoge hacia el centro de su disco'
   );
   assert.match(
     css,
-    /\.btn--spin\s*\{\s*transform-origin:\s*50% 46%;\s*\}/,
+    /\.btn--spin\s*\{\s*transform-origin:\s*50% 50%;\s*\}/,
     'El GIRAR encoge hacia el centro de su disco'
   );
 });
 
 
-test('el velo del hundimiento se recorta al disco de cada pulsador', () => {
+test('la caja tactil de cada pulsador es su bbox del arte y el velo se recorta con --disc', () => {
   const css = read(STYLE_PATH);
 
-  // `--disc` (top right bottom left, en % de la caja tactil) evita que el velo
-  // se salga del disco: FEVER/AUTO incluirian su placa, el GIRAR la punta de la
-  // capsula y MAX la caja ampliada (140 px de alto frente a 76 px del aro).
+  // Medido sobre `consola_movil.webp` (1783 x 693) con el analisis de alfa y
+  // color: discos x 4,6-16,3 / 21,0-32,7 / 67,3-78,9 / 84,1-95,4 % · y
+  // 45,0-74,1 %, capsula del GIRAR x 38,6-61,0 % · y 24,5-79,8 % y el tramo MAX
+  // de la placa APUESTA x 84,2-94,8 % · y 82,0-93,5 %. La caja tactil es
+  // exactamente ese recuadro, asi que el dedo siempre cae sobre el dibujo.
+  const boxes = [
+    [/\.machine__side \.controls #btn-feature\.gbtn \{([^}]*)\}/, ['left: 4.6%;', 'top: 45%;', 'width: 11.7%;', 'height: 29.1%;']],
+    [/\.machine__side \.controls #btn-auto\.gbtn \{([^}]*)\}/, ['left: 21%;', 'top: 44.7%;', 'width: 11.7%;', 'height: 29.4%;']],
+    [/\.machine__side \.controls \.btn--spin\.gbtn \{([^}]*)\}/, ['left: 38.6%;', 'top: 24.5%;', 'width: 22.4%;', 'height: 55.3%;']],
+    [/\.machine__side \.controls__bet #btn-bet-down \{([^}]*)\}/, ['left: 67.3%;', 'top: 45%;']],
+    [/\.machine__side \.controls__bet #btn-bet-up \{([^}]*)\}/, ['left: 84.1%;', 'top: 45%;', 'width: 11.3%;', 'height: 28.8%;']],
+    [/\.machine__side \.controls__bet #btn-bet-max \{([^}]*)\}/, ['left: 84.2%;', 'top: 82%;', 'width: 10.6%;', 'height: 11.5%;']]
+  ];
+  for (const [pattern, declarations] of boxes) {
+    // Las reglas de `--disc` no llevan geometria: se busca la que la declare
+    // completa, que es la que coloca el pulsador sobre el dibujo.
+    const bodies = [...css.matchAll(new RegExp(pattern.source, 'g'))].map((match) => match[1]);
+    assert.ok(bodies.length, `Falta la regla tactil ${pattern.source}`);
+    assert.ok(
+      bodies.some((body) => declarations.every((declaration) => body.includes(declaration))),
+      `Ninguna regla de ${pattern.source} declara ${declarations.join(' ')}`
+    );
+  }
+
+  // Los dos discos que comparten caja declaran una sola vez el tamano comun.
+  const discPair = css.match(
+    /\.machine__side \.controls__bet #btn-bet-down,\s*\n\s*\.machine__side \.controls__bet #btn-bet-up \{([^}]*)\}/
+  );
+  assert.ok(discPair, 'Los discos − y + comparten su regla base');
+  assert.ok(discPair[1].includes('width: 11.6%;'), 'Los dos discos minus/plus miden 11,6 % de ancho');
+  assert.ok(discPair[1].includes('height: 29.1%;'), 'Los dos discos minus/plus miden 29,1 % de alto');
+
+  // `--disc` (top right bottom left, en % de la caja tactil) recorta el velo del
+  // hundimiento. Con la caja ceñida al bbox del arte el recorte no necesita
+  // aire: si alguien vuelve a estirar una caja para incluir la placa, este es el
+  // valor que debe crecer con ella.
   const discs = {
-    '.machine__side .controls #btn-feature': '0 0 30.83% 0',
-    '.machine__side .controls #btn-auto': '0 0 30.91% 0',
-    '.machine__side .controls .btn--spin': '0 0 7.25% 0',
+    '.machine__side .controls #btn-feature': '0',
+    '.machine__side .controls #btn-auto': '0',
+    '.machine__side .controls .btn--spin': '0',
     '.machine__side .controls__bet #btn-bet-down': '0',
     '.machine__side .controls__bet #btn-bet-up': '0',
-    '.machine__side .controls__bet #btn-bet-max': '20% 7% 26% 7%',
+    '.machine__side .controls__bet #btn-bet-max': '0',
   };
   for (const [selector, disc] of Object.entries(discs)) {
     const rule = css.match(
