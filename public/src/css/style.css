@@ -4792,13 +4792,45 @@ body.is-demo .machine__side .controls .balance::after {
     position: absolute;
     /* Pegatina: por encima del dibujo del marco y de las chispas del toldo. */
     z-index: 6;
-    /* Alto del logo: 34 % del ancho del marco (~133 px a 390 px), lo justo para
-       llenar el hueco del arco (30,8 % del ancho del recorte) sin rozar la
-       primera placa del HUD (arranca en 40,88 %). El segundo término es el tope
-       cuando manda el alto del viewport (tablet vertical, móvil apaisado). */
+    /* Aire real que queda por encima del ancla del logo, en px: la mitad del
+       sobrante vertical de la maquina (la rejilla esta centrada, asi que reparte
+       a partes iguales entre arriba y abajo) mas lo que sube el propio marco
+       desde su base hasta el borde inferior del claro del arco (29,12 % de su
+       alto, ver `bottom` mas abajo).
+
+       La consola se descuenta con su relacion propia (1783 / 693 = 0,3887) y no
+       con el 1,1954 de `--m-w`: ese token suma marco y consola pero deja fuera
+       la separacion, y aqui hace falta el alto real de la fila para saber
+       cuanto sobra. `100cqh` es el alto del escenario, que es exactamente el de
+       `.machine` (la maquina lo llena y no tiene padding). */
+    --logo-sky: calc(
+      (100cqh - (var(--frame-h) + var(--row-gap) + var(--m-w) * 0.3887)) / 2
+      + var(--frame-h) * 0.2912
+    );
+    /* Alto del logo: 44 % del ancho del marco (~166 px a 390 px, un 29 % mas que
+       el 34 % anterior). El borde derecho de la chapa cae en 43,2 % del marco,
+       justo donde arranca la placa del saldo: la pegatina se monta sobre su
+       esquina para dar profundidad, pero la tinta a la altura de la franja del
+       HUD (bandas 89-100 % del PNG) no pasa del 38 %, asi que no tapa ni una
+       cifra (medido con el perfil de alfa de `PANA-CRUSH-LOGO.webp`).
+
+       El segundo termino es el tope por alto, y se aplica en TODO el rango
+       movil: de `--logo-sky` se descuentan los 10 px que sube el fotograma 50 %
+       de `pana-logo-sticker` y 6 px de colchon (la rejilla redondea el alto de
+       la consola unos 2 px hacia abajo, y el modelo de arriba sobreestima el
+       aire ~1 px); el resto se divide por 1,046, que es lo que trepa la
+       esquina alta del PNG al girar -3° sobre el origen 50 % 70 % y crecer un
+       3 %. Asi el filo superior del logo nunca rebasa el borde de `.machine`
+       (que recorta con `overflow: hidden`) ni la barra superior, ni siquiera en
+       el fotograma mas alto del balanceo.
+
+       En los telefonos altos el tope no llega a morder (a 390 x 844 sobran ~63 px
+       sobre el filo) y manda el 44 %; en los bajos (320 x 568) y en las tablets
+       verticales (576 x 800, 768 x 1024), donde el arco se apoya en el borde
+       superior, manda el tope y el logo se queda con el aire justo. */
     --logo-h: min(
-      calc(var(--m-w) * 0.34),
-      calc(var(--frame-h) * 0.30 + max(0px, (100cqh - var(--m-w) * 1.1954) / 2))
+      calc(var(--m-w) * 0.44),
+      max(0px, (var(--logo-sky) - 16px) / 1.046)
     );
     /* Ancho de la caja del logo (misma proporción del PNG, 493 / 509). */
     --logo-w: calc(var(--logo-h) * 0.9686);
@@ -4807,13 +4839,14 @@ body.is-demo .machine__side .controls .balance::after {
     /* Centrado sobre el hueco del arco: el claro entre caramelos ocupa
        6,5-37,3 % del ancho (medido sobre `marco_movil.webp`), así que su punto
        medio cae en 21,9 %. El ancla es el CENTRO de la chapa y no su borde
-       izquierdo: cuando el alto del viewport encoge el logo (tablet vertical,
-       móvil apaisado) el ancho baja del 34 % y, anclado por la izquierda, la
-       marca se quedaba pegada al lateral con el arco vacío a la derecha. El
-       `max` conserva el 0,4 % actual como suelo, de modo que en los teléfonos
-       —donde el logo es más ancho que el claro— el desborde por la izquierda no
-       crece ni un píxel. El 0,4 % es el aire que deja la tinta del PNG (empieza
-       en 0,41 % de su caja) para que la chapa caiga justo dentro del marco. */
+       izquierdo: cuando el tope por alto encoge el logo (tablet vertical, móvil
+       apaisado) el ancho baja del 44 % y, anclado por la izquierda, la marca se
+       quedaba pegada al lateral con el arco vacío a la derecha. El `max` deja el
+       0,4 % como suelo por si algún día el logo crece tanto que su borde
+       izquierdo se saliera del marco: el 0,4 % es el aire que ocupa la tinta del
+       PNG en su borde izquierdo (empieza en 0,41 % de su caja). Con el 44 % el
+       borde cae en 0,58 %, dos píxeles escasos por dentro del marco, así que la
+       chapa se monta sobre el arco sin que la recorte nada. */
     left: max(
       calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.004),
       calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.2188 - var(--logo-w) / 2)
@@ -4837,7 +4870,7 @@ body.is-demo .machine__side .controls .balance::after {
 
   .machine__side .machine__hero::before { display: none; }
 
-  /* El logo manda sobre el arco: 34 % del ancho del marco y el alto sale de la
+  /* El logo manda sobre el arco: 44 % del ancho del marco y el alto sale de la
      proporción del PNG, 493 x 509. El sobrante superior es lo que lo saca del
      marco; el balanceo de `pana-logo-sticker` (más inclinación y sombra de
      contacto que la versión de escritorio) lo despega del toldo como una
@@ -5070,53 +5103,20 @@ body.is-demo .machine__side .controls .balance::after {
   }
 }
 /* --------------------------------------------------------------------------
-   Anchos intermedios (576-899 px) · la chapa del logo cabe entera
+   Anchos intermedios (576-899 px) · el logo ya no lleva un tope aparte
    --------------------------------------------------------------------------
-   `--logo-h` (bloque anterior) mezcla la marca al 34 % del ancho del marco con
-   un tope por alto. Ese tope repartia el sobrante vertical de la maquina a
-   medias, pero no descontaba lo que el logo ocupa POR ENCIMA de su ancla: sobre
-   `bottom: 70,88 %` del marco solo quedan 29,12 % de su alto. En ventanas de 576
-   a 899 px que no sobran de alto (tablet vertical, 768 x 1024 · 600 x 900) el
-   arco se apoya en el borde superior de la maquina, asi que ese 30 % de marco
-   daba ~26 px de mas: el logo se salia por arriba del escenario y
-   `overflow: hidden` lo cortaba contra la barra superior.
+   Hasta la revision del marco nuevo la chapa se ataba al 34 % del ancho del
+   marco y solo se acotaba por alto a partir de 576 px, con un tope propio que
+   descontaba 18 px y dividia por 1,046. Ese tope existia porque el 34 % no cabia
+   cuando el arco se apoya en el borde superior de la maquina (tablet vertical,
+   768 x 1024 · 600 x 900): el logo se salia por arriba y `overflow: hidden` lo
+   cortaba contra la barra superior.
 
-   Aqui el tope se mide con la geometria real: aire disponible sobre el ancla =
-   29,12 % del alto del marco + la mitad del sobrante vertical de la maquina
-   (`100cqh` menos marco + `--row-gap` + consola). De ahi se descuentan 18 px y
-   se divide por 1,046: `pana-logo-sticker` sube 10 px y, al girar -3° sobre el
-   origen 50 % 70 %, la esquina alta del PNG trepa 4,6 % de su alto; los 8 px
-   restantes absorben el aire que el sobrante real de la rejilla no llega a
-   repartir (la consola mide ~4 px mas que su relacion). Asi el filo superior
-   queda dentro incluso en el fotograma mas alto del balanceo.
-
-   Solo cambia el tope de alto. El 34 % del primer termino, el centrado sobre el
-   arco y el ancla inferior (`bottom`) siguen intactos, asi que la chapa
-   conserva su punto medio sobre el claro y su desborde lateral. En horizontal
-   de movil (844 x 390, 667 x 375) el tope es pequeno porque apenas hay aire, y
-   ahora el logo se encoge sobre el arco en vez de arrimarse al borde.
-
-   El tope de alto empieza en 576 px a proposito: de ahi para abajo el reparto
-   anterior ya deja aire de sobra en los anchos reales de telefono (320-430 px) y
-   esos tamanos no se tocan. El centrado sobre el arco, en cambio, es comun a
-   todo el layout movil: en 320-430 px no mueve nada porque el logo es mas ancho
-   que el claro y el `max` de `left` lo deja en el 0,4 % de siempre.
+   Ahora el tope es comun a todo el rango movil y se calcula en la regla base con
+   la geometria real del hueco (`--logo-sky`), asi que aqui no hace falta
+   ninguna excepcion: en 576-899 px manda el mismo `min()` y la chapa se queda
+   con el aire justo sobre el arco, sin tocar el filo ni la barra superior.
    -------------------------------------------------------------------------- */
-@media (min-width: 576px) and (max-width: 899px) {
-  .machine__side .machine__hero {
-    --logo-h: min(
-      calc(var(--m-w) * 0.34),
-      max(
-        0px,
-        (
-          var(--frame-h) * 0.2912
-          + max(0px, (100cqh - var(--m-w) * 1.1954 - var(--row-gap)) / 2)
-          - 18px
-        ) / 1.046
-      )
-    );
-  }
-}
 
 /* --------------------------------------------------------------------------
    4) La consola · carcasa grafica + controles superpuestos

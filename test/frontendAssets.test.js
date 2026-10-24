@@ -538,6 +538,36 @@ test('la consola y el tablero comparten el mismo eje X en movil', () => {
     /bottom:\s*calc\(var\(--frame-h\) \* 0\.7088\);/,
     'La base del logo se apoya en el borde inferior del claro'
   );
+
+  // 5) La chapa del logo: 44 % del ancho del marco y un tope por alto medido con
+  //    el hueco real. `--logo-sky` es lo que hay entre el filo superior de
+  //    `.machine` y el ancla del logo: la mitad del sobrante vertical de la
+  //    rejilla (alto del escenario menos marco, separacion y consola) mas el
+  //    29,12 % del marco que queda por encima de la base. De ahi se descuentan
+  //    16 px (10 del balanceo + 6 de colchon) y se divide por 1,046, que es lo
+  //    que trepa la esquina alta del PNG al girar -3° y crecer un 3 %. Sin ese
+  //    tope el 44 % se corta contra el filo en tablet vertical y en 320 px.
+  assert.match(
+    heroRule[0],
+    /--logo-sky:\s*calc\(\s*\(100cqh - \(var\(--frame-h\) \+ var\(--row-gap\) \+ var\(--m-w\) \* 0\.3887\)\) \/ 2\s*\+ var\(--frame-h\) \* 0\.2912\s*\);/,
+    'El aire del logo se mide con el hueco real, no con un porcentaje fijo'
+  );
+  assert.match(
+    heroRule[0],
+    /--logo-h:\s*min\(\s*calc\(var\(--m-w\) \* 0\.44\),\s*max\(0px, \(var\(--logo-sky\) - 16px\) \/ 1\.046\)\s*\);/,
+    'El logo apunta al 44 % del marco y nunca rebasa el filo superior'
+  );
+  assert.match(
+    heroRule[0],
+    /--logo-w:\s*calc\(var\(--logo-h\) \* 0\.9686\);/,
+    'La caja del logo conserva la proporcion del PNG (493 x 509)'
+  );
+  assert.doesNotMatch(heroRule[0], /var\(--m-w\) \* 0\.34\b/, 'El logo ya no se ata al 34 % anterior');
+  assert.equal(
+    (css.match(/--logo-h:\s*min\(/g) || []).length,
+    1,
+    'El tope del logo vive en una sola regla, comun a todo el rango movil'
+  );
 });
 test('el arte de las dos maquinas se sirve con su lienzo exacto y los maestros quedan fuera de public/', () => {
   // Cada pieza se pinta con `background: url(...) center / contain` sobre una
