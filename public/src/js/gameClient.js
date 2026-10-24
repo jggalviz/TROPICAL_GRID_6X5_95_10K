@@ -379,13 +379,18 @@ export class GameClient {
     if (!isFeature) this.ui.setMultiplier(round.multiplier);
 
     const total = round.totalWinCents;
-    this.ui.setWin(total);
+    const level = total > 0 ? winLevel(total, round.betCents) : null;
 
-    if (total > 0) {
-      const level = winLevel(total, round.betCents);
+    if (level) {
+      /* El conteo ascendente es solo visual; la cifra final es la del payload. */
+      this.ui.setWin(total, { roll: true, level: level.key });
       this.ui.showBanner(level.key, formatCents(total));
+      this.ui.celebrate(level.key, formatCents(total));
       this.sfx.win(level.key);
-      setTimeout(() => this.ui.hideBanner(), 2200);
+      const bannerMs = level.key === 'mega' || level.key === 'epic' ? 3400 : 2200;
+      setTimeout(() => this.ui.hideBanner(), bannerMs);
+    } else {
+      this.ui.setWin(0);
     }
 
     if (round.maxWinReached) {
@@ -432,7 +437,7 @@ export class GameClient {
       await this.ui.popCells(cells);
 
       running += step.winCents;
-      this.ui.setWin(running);
+      this.ui.setWin(running, { roll: true });
 
       const bombsAfter = step.bombsAfter || [];
       this.ui.renderGrid(step.gridAfter, bombsAfter, { drop: true });

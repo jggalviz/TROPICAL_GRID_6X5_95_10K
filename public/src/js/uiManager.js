@@ -16,15 +16,31 @@ import {
   formatPlain,
   symbolMeta
 } from './format.js';
+import { createFx } from './fx.js';
 
 const REDUCED_MOTION = typeof window.matchMedia === 'function'
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const base = (ms) => (REDUCED_MOTION ? Math.min(ms, 20) : ms);
 
+/**
+ * Cascada de caida: cada columna arranca `DROP_STAGGER` ms despues de la
+ * anterior y dentro de la columna la fila suma un escalon corto para que el
+ * bloque no caiga como una losa rigida.
+ *
+ * `tile-drop` dura 300 ms y aterriza al 70 % (210 ms). Con la ultima columna
+ * (delay 300 + 4 x 6 = 324 ms) el aterrizaje cae en 534 ms, antes de la espera
+ * `TIMING.drop` (580 ms): cuando empieza el resaltado de premios todos los
+ * simbolos ya estan en su celda.
+ */
+const DROP_STAGGER = 60;
+const DROP_ROW_STAGGER = 6;
+const DROP_MS = 300;
+const DROP_LAND_RATIO = 0.7;
+
 export const TIMING = Object.freeze({
   reel: base(300),
-  drop: base(330),
+  drop: base(580),
   hold: base(640),
   pop: base(300),
   settle: base(240)
@@ -58,6 +74,18 @@ export class Ui {
     this.demoCurrency = 'VES';
     this.demoStartCredits = 1000;
     this.handlers = { onSound: null };
+
+    /* Capa de particulas y celebraciones (se monta en `mount`). */
+    this.fx = null;
+    /* Conteo ascendente de la ganancia: valor mostrado y frame pendiente. */
+    this.winShownCents = 0;
+    this.winRaf = 0;
+    /* Temporizadores de los efectos del marco y del HUD. */
+    this.landTimer = 0;
+    this.landOffTimer = 0;
+    this.frameShakeTimer = 0;
+    this.hudTimer = 0;
+    this.mxTimer = 0;
   }
 
   mount() {
@@ -105,6 +133,11 @@ export class Ui {
       infoRtpFeature: byId('info-rtp-feature'),
       infoCap: byId('info-cap')
     };
+
+    /* Contenedores que reciben los efectos de impacto y de camara. */
+    this.refs.board = document.querySelector('.board');
+    this.refs.frame = document.querySelector('.machine__table');
+    this.fx = createFx();
 
     this.buildGrid();
 
@@ -226,17 +259,62 @@ export class Ui {
     this.renderGrid(matrix, [], { drop: false });
   }
 
+  /**
+   * Caida en cascada: las seis columnas aterrizan escalonadas de izquierda a
+   * derecha (`DROP_STAGGER` ms) con un micro escalon por fila dentro de cada
+   * columna.
+   *
+   * El retardo viaja en la custom property `--drop-delay`: asi no queda un
+   * `animation-delay` inline que retrasaria despues `tile--win` o `tile--pop`.
+   *
+   * @returns {number} ms que tarda en caer la ultima columna
+   */
   playDrop() {
+    let lastDelay = 0;
+
     this.tiles.forEach((tile, index) => {
       tile.classList.remove('tile--drop', 'tile--win', 'tile--pop', 'tile--spinning');
       if (REDUCED_MOTION) return;
+
+      const row = Math.floor(index / 6);
+      const col = index % 6;
+      const delay = col * DROP_STAGGER + row * DROP_ROW_STAGGER;
+      if (delay > lastDelay) lastDelay = delay;
+
       void tile.offsetWidth; // reinicia la animacion
-      tile.style.animationDelay = `${Math.min(index, 30) * 8}ms`;
+      tile.style.setProperty('--drop-delay', `${delay}ms`);
       tile.classList.add('tile--drop');
     });
+
+    if (REDUCED_MOTION) return 0;
+
+    this.scheduleLanding_(lastDelay + DROP_MS * DROP_LAND_RATIO);
+    return lastDelay + DROP_MS;
+  }
+
+  /**
+   * Micro-impacto del marco justo cuando la ultima columna toca su celda: hace
+   * de contrapeso sonoro/visual y da peso al aterrizaje.
+   */
+  scheduleLanding_(atMs) {
+    clearTimeout(this.landTimer);
+    this.landTimer = setTimeout(() => this.dropImpact(), Math.max(0, atMs));
+  }
+
+  dropImpact() {
+    const board = this.refs.board;
+    if (!board || REDUCED_MOTION) return;
+
+    board.classList.remove('is-landing');
+    void board.offsetWidth;
+    board.classList.add('is-landing');
+
+    clearTimeout(this.landOffTimer);
+    this.landOffTimer = setTimeout(() => board.classList.remove('is-landing'), 430);
   }
 
   startSpinning() {
+    if (this.fx) this.fx.clear();
     this.tiles.forEach((tile, index) => {
       tile.classList.remove('tile--drop', 'tile--win', 'tile--pop', 'tile--spinning');
       tile.classList.add('tile--spinning');
@@ -250,6 +328,18 @@ export class Ui {
     });
   }
 
+  /** Chispas sobre una muestra de las celdas premiadas. */
+  burst_(indexes, power = 1, maxCells = 18) {
+    if (!this.fx || !indexes || indexes.length === 0) return;
+    const step = Math.max(1, Math.ceil(indexes.length / maxCells));
+    const sample = [];
+    for (let i = 0; i < indexes.length; i += step) {
+      const tile = this.tiles[indexes[i]];
+      if (tile) sample.push(tile);
+    }
+    this.fx.sparkBurst(sample, { power });
+  }
+
   /** Marca celdas [[r,c], ...] y devuelve los indices afectados. */
   highlightCells(cells, className = 'tile--win') {
     const indexes = [];
@@ -261,6 +351,8 @@ export class Ui {
       tile.classList.add(className);
       indexes.push(index);
     }
+    /* Chispas doradas al encenderse el premio (solo en celdas ganadoras). */
+    if (className === 'tile--win') this.burst_(indexes, 1, 18);
     return indexes;
   }
 
@@ -274,6 +366,10 @@ export class Ui {
       tile.classList.add('tile--pop');
       indexes.push(r * 6 + c);
     }
+
+    /* Segunda tanda, mas abierta: acompana la explosion de las celdas. */
+    this.burst_(indexes, 2, 12);
+
     await sleep(TIMING.pop);
     for (const index of indexes) {
       const tile = this.tiles[index];
@@ -287,6 +383,86 @@ export class Ui {
     void grid.offsetWidth;
     grid.classList.add('is-shaking');
     setTimeout(() => grid.classList.remove('is-shaking'), 360);
+  }
+
+  /**
+   * Temblor del marco completo (MEGA WIN). Se aplica a `.machine__table`, que
+   * pinta el dibujo del marco y contiene el tablero, para que tiemble la
+   * ventana de juego y no el HUD ni la consola.
+   */
+  shakeFrame() {
+    const frame = this.refs.frame;
+    if (!frame || REDUCED_MOTION) return;
+
+    frame.classList.remove('is-quaking');
+    void frame.offsetWidth;
+    frame.classList.add('is-quaking');
+
+    clearTimeout(this.frameShakeTimer);
+    this.frameShakeTimer = setTimeout(() => frame.classList.remove('is-quaking'), 660);
+  }
+
+  /**
+   * Escala de celebracion segun el nivel de premio que ya calculo el servidor:
+   *
+   *   win  -> el brillo y las chispas ya los puso `tile--win`.
+   *   big  -> destello de pantalla + enfasis del HUD (el conteo ascendente va
+   *           en `setWin`).
+   *   mega -> cartel 3D, lluvia de monedas y temblor del marco.
+   *   epic -> lo mismo, con mas intensidad.
+   *
+   * @param {string} level clave de `winLevel`
+   * @param {string} amountText importe ya formateado
+   */
+  celebrate(level, amountText) {
+    const key = LEVEL_LABEL[level] ? level : 'win';
+    this.bumpHud_(key);
+    if (!this.fx) return;
+
+    if (key === 'big') {
+      this.fx.flash({ power: 0.5 });
+      return;
+    }
+
+    if (key === 'mega' || key === 'epic') {
+      const huge = key === 'epic';
+      this.fx.flash({ power: huge ? 1 : 0.8 });
+      this.fx.coinRain({ count: huge ? 44 : 34 });
+      const card = this.fx.mega(huge ? '¡ÉPICA GANANCIA!' : '¡MEGA GANANCIA!', amountText);
+
+      /* El cartel 3D sustituye al banner del tablero, que quedaria detras con
+         el mismo importe. Con movimiento reducido no hay cartel y el banner se
+         queda como unico mensaje. */
+      if (card && this.refs.banner) this.refs.banner.classList.remove('is-visible');
+
+      this.shakeFrame();
+    }
+  }
+
+  /** Enfasis de la placa de ganancia y del multiplicador (solo transform). */
+  bumpHud_(key) {
+    if (REDUCED_MOTION || key === 'win') return;
+
+    const winCell = this.refs.winValue ? this.refs.winValue.closest('.hud__cell') : null;
+    const mxCell = this.refs.mxValue ? this.refs.mxValue.closest('.hud__cell') : null;
+    const huge = key === 'mega' || key === 'epic';
+
+    if (winCell) {
+      winCell.classList.remove('is-win-big', 'is-win-huge');
+      void winCell.offsetWidth;
+      winCell.classList.add(huge ? 'is-win-huge' : 'is-win-big');
+    }
+    if (mxCell) {
+      mxCell.classList.remove('is-hot', 'is-hot-max');
+      void mxCell.offsetWidth;
+      mxCell.classList.add(huge ? 'is-hot-max' : 'is-hot');
+    }
+
+    clearTimeout(this.hudTimer);
+    this.hudTimer = setTimeout(() => {
+      if (winCell) winCell.classList.remove('is-win-big', 'is-win-huge');
+      if (mxCell) mxCell.classList.remove('is-hot', 'is-hot-max');
+    }, huge ? 1000 : 700);
   }
 
   /* -------------------------------------------------------------------- HUD */
@@ -339,12 +515,72 @@ export class Ui {
       `${this.featureCostMultiplier}× · ${formatCredits(credits * this.featureCostMultiplier)}`;
   }
 
-  setWin(cents) {
-    this.refs.winValue.textContent = formatCents(cents);
+  /**
+   * Pinta la ganancia acumulada.
+   *
+   * Con `roll` el numero asciende desde el valor mostrado hasta el objetivo con
+   * `requestAnimationFrame` (solo escribe texto, no mueve layout). El importe
+   * final es siempre el del servidor: el conteo es puramente visual.
+   *
+   * @param {number} cents importe autoritativo del payload
+   * @param {{roll?: boolean, level?: string}} [options]
+   */
+  setWin(cents, { roll = false, level = 'win' } = {}) {
+    const target = Number.isFinite(cents) ? Math.max(0, Math.round(cents)) : 0;
+    const node = this.refs.winValue;
+
+    this.cancelWinRoll_();
+
+    if (!roll || REDUCED_MOTION || typeof requestAnimationFrame !== 'function' || target <= this.winShownCents) {
+      this.winShownCents = target;
+      node.textContent = formatCents(target);
+      return;
+    }
+
+    const from = this.winShownCents;
+    const duration = level === 'win' ? 420 : 520;
+    const started = performance.now();
+
+    const step = (now) => {
+      const progress = Math.min(1, (now - started) / duration);
+      const eased = 1 - (1 - progress) ** 3;
+      const value = Math.round(from + (target - from) * eased);
+
+      this.winShownCents = value;
+      node.textContent = formatCents(value);
+
+      if (progress < 1) {
+        this.winRaf = requestAnimationFrame(step);
+        return;
+      }
+
+      this.winRaf = 0;
+      this.winShownCents = target;
+      node.textContent = formatCents(target);
+    };
+
+    this.winRaf = requestAnimationFrame(step);
+  }
+
+  cancelWinRoll_() {
+    if (this.winRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this.winRaf);
+    this.winRaf = 0;
   }
 
   setMultiplier(value) {
-    this.refs.mxValue.textContent = value && value > 1 ? formatMultiplier(value) : '—';
+    const active = Boolean(value && value > 1);
+    this.refs.mxValue.textContent = active ? formatMultiplier(value) : '—';
+
+    const cell = this.refs.mxValue.closest('.hud__cell');
+    if (!cell || !active || REDUCED_MOTION) return;
+
+    /* Pulso corto en cada subida del multiplicador (bonus de 10 giros). */
+    cell.classList.remove('is-tick');
+    void cell.offsetWidth;
+    cell.classList.add('is-tick');
+
+    clearTimeout(this.mxTimer);
+    this.mxTimer = setTimeout(() => cell.classList.remove('is-tick'), 640);
   }
 
   setStatus(text) {

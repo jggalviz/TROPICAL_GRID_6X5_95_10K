@@ -474,14 +474,55 @@ button:disabled { cursor: not-allowed; }
 
 /* Estados de animacion */
 .tile--spinning { animation: tile-blur 0.35s linear infinite; }
-.tile--drop { animation: tile-drop 0.34s cubic-bezier(0.22, 1.4, 0.4, 1) both; }
-.tile--win {
-  animation: tile-win 0.5s ease-in-out infinite alternate;
-  border-color: rgba(255, 246, 160, 0.95);
-  box-shadow: 0 0 22px rgba(255, 237, 112, 0.72);
+
+/* Caida en cascada: el retardo por columna llega en `--drop-delay` (lo fija
+   `playDrop` y lo hereda la imagen). Solo cae el simbolo: el marco de la celda
+   se queda fijo, asi la cascada se lee como fichas que bajan por su carril y no
+   como huecos que se abren en el tablero. La curva del primer tramo es suave y
+   el rebote se dibuja con paradas explicitas: impacto aplastado, salto de -6 %
+   y reposo. */
+.tile--drop .tile__img {
+  animation: tile-drop 0.3s linear var(--drop-delay, 0ms) both;
+  will-change: transform, opacity;
 }
-.tile--pop { animation: tile-pop 0.3s ease-in forwards; }
-.tile--scatter { animation: tile-scatter 0.8s ease-in-out infinite alternate; }
+
+.tile--win {
+  animation: tile-win 0.46s ease-in-out infinite alternate;
+  border-color: rgba(255, 246, 160, 0.95);
+  will-change: transform;
+}
+
+/* Resplandor dorado del premio: el pulso se hace con `opacity` sobre un pseudo
+   elemento fijo, no animando `filter` (que obligaria a repintar la celda).
+   El halo exterior vive aqui y no en el `box-shadow` de la celda: asi se
+   rasteriza una sola vez y el pulso solo compone. Sin `mix-blend-mode`, que
+   impide promover la capa y recompone la pagina entera en cada frame. */
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 250, 205, 0.16) 38%, rgba(255, 226, 111, 0.66) 66%, rgba(255, 168, 226, 0.5) 85%, rgba(255, 168, 226, 0) 93%);
+  box-shadow:
+    inset 0 0 13px rgba(255, 238, 150, 0.85),
+    0 0 15px 2px rgba(255, 206, 74, 0.8);
+}
+
+.tile--win::after { animation: tile-win-glow 0.46s ease-in-out infinite alternate; }
+
+.tile--pop {
+  animation: tile-pop 0.3s cubic-bezier(0.5, -0.2, 0.75, 0.4) forwards;
+  will-change: transform, opacity;
+}
+
+.tile--scatter {
+  animation: tile-scatter 0.8s ease-in-out infinite alternate;
+}
 
 @keyframes tile-blur {
   0%, 100% { filter: blur(0); }
@@ -489,18 +530,39 @@ button:disabled { cursor: not-allowed; }
 }
 
 @keyframes tile-drop {
-  from { transform: translateY(-46%) scale(0.92); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  0% {
+    transform: translate3d(0, -78%, 0) scale(0.94, 1.06);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+  }
+  40% { opacity: 1; }
+  55% {
+    transform: translate3d(0, -20%, 0) scale(1.01, 0.99);
+    opacity: 1;
+  }
+  70% {
+    /* Aterrizaje: la celda se aplasta y el marco recibe el impacto. */
+    transform: translate3d(0, 0, 0) scale(1.07, 0.91);
+    animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  84% { transform: translate3d(0, -6%, 0) scale(0.985, 1.02); }
+  100% { transform: translate3d(0, 0, 0) scale(1, 1); opacity: 1; }
 }
 
 @keyframes tile-win {
-  from { transform: scale(1); filter: brightness(1); }
-  to { transform: scale(1.07); filter: brightness(1.45); }
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+
+@keyframes tile-win-glow {
+  from { opacity: 0.22; }
+  to { opacity: 0.95; }
 }
 
 @keyframes tile-pop {
-  from { transform: scale(1); opacity: 1; }
-  to { transform: scale(0.35) rotate(12deg); opacity: 0; }
+  0% { transform: scale(1.12) rotate(0deg); opacity: 1; }
+  35% { transform: scale(1.2) rotate(-3deg); opacity: 1; }
+  100% { transform: scale(0.32) rotate(12deg); opacity: 0; }
 }
 
 @keyframes tile-scatter {
@@ -6921,4 +6983,296 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .machine__logo { animation: none; }
   .machine__side .controls .gbtn::after { display: none; }
   .machine__side .controls .gbtn:hover:not(:disabled)::before { opacity: 0.22; }
+}
+
+
+/* ==========================================================================
+   GAME FEEL · caida en cascada, impacto y celebraciones
+   ==========================================================================
+   Solo presentacion. Todo se mueve con `transform` y `opacity` (el resplandor
+   del premio es un pseudo elemento cuya `opacity` pulsa) para que el navegador
+   lo resuelva en el compositor y el tablero siga fluido en movil.
+
+   `will-change` se declara unicamente en los estados que se animan y se retira
+   al quitar la clase: nunca queda reservado de forma permanente.
+   -------------------------------------------------------------------------- */
+
+/* --- Impacto del marco al aterrizar la ultima columna --------------------- */
+.board.is-landing {
+  animation: board-land 0.34s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  will-change: transform;
+}
+
+/* El filo de cristal del tablero se enciende un instante: es el "golpe" del
+   marco y se anima solo con opacidad. */
+.board.is-landing::before { animation: board-ring 0.42s ease-out; }
+
+@keyframes board-land {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.006); }
+  100% { transform: scale(1); }
+}
+
+@keyframes board-ring {
+  0% { opacity: 0.98; }
+  100% { opacity: 0.45; }
+}
+
+/* --- Temblor de camara del marco (MEGA / EPICA) --------------------------- */
+/* Solo traslacion: rotar el marco (que pinta su arte con una imagen de fondo)
+   fuerza re-rasterizar la capa en cada frame y hunde la tasa a ~20 fps en
+   equipos sin GPU. Con `translate3d` el compositor mueve la capa ya pintada y
+   el golpe se lee igual. */
+.machine__table.is-quaking {
+  animation: screenShake 0.62s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  will-change: transform;
+}
+
+@keyframes screenShake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  12% { transform: translate3d(-6px, 3px, 0); }
+  26% { transform: translate3d(6px, -4px, 0); }
+  40% { transform: translate3d(-5px, 4px, 0); }
+  56% { transform: translate3d(4px, -3px, 0); }
+  72% { transform: translate3d(-3px, 2px, 0); }
+  88% { transform: translate3d(1px, -1px, 0); }
+}
+
+/* --- Enfasis del HUD ------------------------------------------------------ */
+.hud__cell.is-win-big { animation: hud-bump 0.62s cubic-bezier(0.175, 0.885, 0.32, 1.275); will-change: transform; }
+.hud__cell.is-win-huge { animation: hud-bump-huge 0.95s cubic-bezier(0.175, 0.885, 0.32, 1.275); will-change: transform; }
+.hud__cell.is-hot { animation: hud-hot 0.64s cubic-bezier(0.175, 0.885, 0.32, 1.275); will-change: transform; }
+.hud__cell.is-hot-max { animation: hud-hot 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275) 2; will-change: transform; }
+.hud__cell.is-tick { animation: hud-tick 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); will-change: transform; }
+
+@keyframes hud-bump {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+
+/* El HUD late con escala: girar la celda re-rasteriza su texto con sombra en
+   cada frame y no aporta nada frente a un `scale` limpio. */
+@keyframes hud-bump-huge {
+  0% { transform: scale(1); }
+  18% { transform: scale(1.34); }
+  44% { transform: scale(1.16); }
+  70% { transform: scale(1.26); }
+  100% { transform: scale(1); }
+}
+
+@keyframes hud-hot {
+  0% { transform: scale(1); }
+  22% { transform: scale(1.38); }
+  55% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes hud-tick {
+  0% { transform: scale(1); }
+  26% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* --- Capa de particulas (chispas, destellos, lluvia y cartel) -------------- */
+/* Una sola capa fija por encima del juego y por debajo de toasts (60) y del
+   modal (70). Nunca recibe eventos y aisla su pintado del resto de la pagina. */
+.fx {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  overflow: hidden;
+  pointer-events: none;
+  contain: layout paint;
+}
+
+/* Chispas que salen de las celdas premiadas. El recorrido se compone con
+   `--x/--y` (origen en viewport) y `--dx/--dy` (desplazamiento). */
+.fx__spark {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--s, 6px);
+  height: var(--s, 6px);
+  margin: calc(var(--s, 6px) / -2) 0 0 calc(var(--s, 6px) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 28%, var(--c, #ffd35c) 60%, transparent 74%);
+  transform: translate3d(var(--x, 0), var(--y, 0), 0);
+  animation: spark-fly var(--t, 560ms) cubic-bezier(0.16, 0.84, 0.44, 1) forwards;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+@keyframes spark-fly {
+  0% { opacity: 0; transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(0.35); }
+  15% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(var(--x, 0) + var(--dx, 0)), calc(var(--y, 0) + var(--dy, 0)), 0) scale(0.15);
+  }
+}
+
+/* Destello de pantalla. La intensidad llega en `--flash-peak` y el origen en
+   `--fx-cx/--fx-cy` (centro del tablero: en escritorio la ventana y el tablero
+   no comparten centro). Se pinta con un gradiente translucido y sin mezcla:
+   `mix-blend-mode` sobre toda la ventana obliga a recomponer la pagina entera
+   en cada frame. */
+.fx__flash {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+  background:
+    radial-gradient(56% 50% at var(--fx-cx, 50%) var(--fx-cy, 46%), rgba(255, 255, 255, 0.9), rgba(255, 236, 158, 0.52) 46%, rgba(255, 154, 216, 0.16) 72%, transparent 84%);
+  animation: screen-flash 0.55s ease-out both;
+  will-change: opacity;
+  pointer-events: none;
+}
+
+@keyframes screen-flash {
+  0% { opacity: 0; }
+  16% { opacity: var(--flash-peak, 0.7); }
+  100% { opacity: 0; }
+}
+
+/* Lluvia de monedas y caramelos (MEGA). Cae en linea recta con deriva y giro:
+   una sola capa compuesta por elemento, sin sombras ni filtros por frame. */
+.fx__coin {
+  position: fixed;
+  left: 0;
+  top: 0;
+  font-size: var(--s, 26px);
+  line-height: 1;
+  opacity: 0;
+  transform: translate3d(var(--x, 0), -14vh, 0);
+  animation: coin-fall var(--t, 2000ms) var(--d, 0ms) cubic-bezier(0.32, 0.06, 0.66, 0.98) both;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+@keyframes coin-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--x, 0), -14vh, 0) rotate(var(--r0, 0deg));
+  }
+  10% { opacity: 1; }
+  82% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(var(--x, 0) + var(--drift, 0)), 104vh, 0) rotate(var(--r1, 540deg));
+  }
+}
+
+/* Cartel del gran premio. Una sola animacion de vida (entrada con escala,
+   sostenimiento y salida) evita conflictos entre animaciones que comparten
+   `transform`; el barrido de luz usa un pseudo con su propia curva.
+   El eje Z no se anima: `rotateX` obliga a re-rasterizar el cartel en cada
+   frame y en escritorio se nota (hasta 40 fps en equipos sin GPU); la entrada
+   se lee igual con escala y desplazamiento, que el compositor resuelve solo.
+   `left` llega en px desde `fx.js` (centro del tablero): 50% es el respaldo. */
+.fx__mega {
+  position: fixed;
+  left: 50%;
+  top: 42%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: clamp(14px, 2.4vw, 26px) clamp(22px, 4vw, 46px);
+  overflow: hidden;
+  border: 3px solid rgba(255, 245, 170, 0.95);
+  border-radius: clamp(16px, 2vw, 26px);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 246, 168, 0.7), transparent 62%),
+    linear-gradient(160deg, #ff4fa8 0%, #b0188c 46%, #5c0b7b 100%);
+  box-shadow:
+    0 0 0 6px rgba(255, 226, 111, 0.26),
+    0 26px 60px rgba(60, 2, 54, 0.58),
+    inset 0 2px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -10px 22px rgba(58, 3, 52, 0.35);
+  transform: translate(-50%, -50%);
+  animation: mega-life 2.6s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.fx__mega::after {
+  content: "";
+  position: absolute;
+  inset: -40% -12%;
+  background: linear-gradient(100deg, transparent 38%, rgba(255, 255, 255, 0.8) 50%, transparent 62%);
+  transform: translate3d(-72%, 0, 0);
+  animation: mega-sheen 1.05s 0.34s ease-in-out 2;
+  /* Sin `mix-blend-mode`: mezclar con el fondo impide al compositor tratar la
+     franja como capa propia y cada frame se repinta el gradiente. Una capa
+     promovida con `translate3d` da el mismo brillo sin coste de pintado. */
+  will-change: transform;
+  pointer-events: none;
+}
+
+.fx__mega-kicker {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(17px, 3.2vw, 32px);
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff8c4;
+  text-shadow: 0 3px 0 #8d0f5f, 0 0 22px rgba(255, 236, 120, 0.9);
+}
+
+.fx__mega-amount {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(26px, 5.6vw, 56px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 4px 0 #7d0b52, 0 0 26px rgba(255, 255, 255, 0.72);
+}
+
+@keyframes mega-life {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.1);
+  }
+  11% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.93);
+  }
+  20% { transform: translate(-50%, -50%) scale(1.03); }
+  28% { transform: translate(-50%, -50%) scale(1); }
+  82% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.14) translateY(-18px);
+  }
+}
+
+@keyframes mega-sheen {
+  from { transform: translate3d(-72%, 0, 0); }
+  to { transform: translate3d(72%, 0, 0); }
+}
+
+/* Movimiento reducido: los estados siguen existiendo (no rompen el flujo del
+   juego) pero se resuelven sin animacion y sin capa de particulas. */
+@media (prefers-reduced-motion: reduce) {
+  .tile--drop .tile__img,
+  .tile--win,
+  .tile--pop,
+  .tile--scatter,
+  .tile--win::after,
+  .board.is-landing,
+  .board.is-landing::before,
+  .machine__table.is-quaking,
+  .hud__cell.is-win-big,
+  .hud__cell.is-win-huge,
+  .hud__cell.is-hot,
+  .hud__cell.is-hot-max,
+  .hud__cell.is-tick {
+    animation: none;
+  }
+
+  .fx { display: none; }
 }
