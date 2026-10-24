@@ -15,8 +15,11 @@
  *
  * Piezas:
  *   design/d1.png -> public/src/assets/d1.webp  (1017 x 819)  marco del tablero
- *   design/d2.png -> public/src/assets/d2.webp  ( 605 x 443)  modulo hero + 3 placas
+ *   design/d5.png -> public/src/assets/d5.webp  (1471 x 1042) modulo hero + 3 placas
  *   design/d3.png -> public/src/assets/d3.webp  ( 599 x 468)  consola de controles
+ *
+ * `d2` (605 x 443) queda archivado en `design/`: el arte nuevo `d5` trae la
+ * misma composicion (nube del logo + tres placas ciruela) con mas lienzo.
  *
  * El script, para cada pieza:
  *   1. mide el bbox de los pixeles con alfa visible;
@@ -50,12 +53,15 @@ const PIECES = [
     quality: 90,
     maxBytes: 300 * 1024
   },
+  // El maestro `d5` llega a 1474 x 1067 y su alfa recorta 1471 x 1042: se
+  // publica al tamano del recorte, sin reescalar, para que el hero quede
+  // nitido en DPR 2 (en 1920 px el modulo se pinta a ~580 px de ancho).
   {
-    name: 'd2',
+    name: 'd5',
     label: 'modulo hero + placas',
-    canvas: { width: 605, height: 443 },
+    canvas: { width: 1471, height: 1042 },
     quality: 90,
-    maxBytes: 260 * 1024
+    maxBytes: 560 * 1024
   },
   {
     name: 'd3',

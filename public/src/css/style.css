@@ -6144,14 +6144,16 @@ body.is-demo .machine__side .controls .balance::after {
 
      d1.webp · 1017 x 819  marco del tablero (ventana transparente x 5,0-94,3 %
                            · y 11,7-94,2 %) → columna derecha
-     d2.webp ·  605 x 443  modulo hero: nube del logo + 3 placas ciruela
-                           (x 6,28-92,56 % · y 75,85-94,13 %) → cabecera de la
-                           columna izquierda
+     d5.webp · 1471 x 1042 modulo hero: nube del logo + 3 placas ciruela
+                           (placas x 5,64-94,49 % · y 75,82-91,84 %; hueco de
+                           la nube x 30,9-70,5 % en su punto mas ancho, y 57,4 %,
+                           que cierra en y 68,5 %) → cabecera de la columna
+                           izquierda
      d3.webp ·  599 x 468  consola: − / lectura / + / MAX · SPIN · FEVER · AUTO
                            → pie de la columna izquierda
 
    El reparto del alto es una sola medida (`--frame-h`): el marco y la columna
-   lateral comparten alto y la lateral reparte su ancho entre d2 y d3 segun sus
+   lateral comparten alto y la lateral reparte su ancho entre d5 y d3 segun sus
    relaciones. Asi el conjunto nunca desborda el viewport (sin scroll) y todas
    las capas superpuestas escalan con el dibujo.
    ========================================================================== */
@@ -6174,16 +6176,16 @@ body.is-demo .machine__side .controls .balance::after {
     --d-avail-pad: clamp(16px, 3vw, 44px);
 
     /* Alto del marco: el menor entre el que deja el viewport y el que deja el
-       ancho. 1,9025 = 1,24176 (relacion de d1) + 0,66071 (ancho de la columna
+       ancho. 1,91305 = 1,24176 (relacion de d1) + 0,67129 (ancho de la columna
        lateral por unidad de alto, ver mas abajo). */
     --frame-h: min(
       calc(100dvh - var(--d-chrome) - var(--d-bleed)),
-      calc((min(100vw, 1760px) - var(--d-avail-pad) - var(--d-gap-x)) / 1.9025)
+      calc((min(100vw, 1760px) - var(--d-avail-pad) - var(--d-gap-x)) / 1.91305)
     );
     --frame-w: calc(var(--frame-h) * 1.24176);
-    /* 1,51353 = 443/605 (alto de d2 por unidad de ancho) + 468/599 (d3). */
-    --side-w: calc((var(--frame-h) - var(--d-gap-y)) / 1.51353);
-    --hero-h: calc(var(--side-w) * 0.73223);
+    /* 1,48966 = 1042/1471 (alto de d5 por unidad de ancho) + 468/599 (d3). */
+    --side-w: calc((var(--frame-h) - var(--d-gap-y)) / 1.48966);
+    --hero-h: calc(var(--side-w) * 0.70836);
     --cons-h: calc(var(--side-w) * 0.78130);
 
     /* Sin caja propia: el arte de cada bloque ya trae su marco. */
@@ -6227,7 +6229,7 @@ body.is-demo .machine__side .controls .balance::after {
   }
 
   /* ------------------------------------------------------------------------
-     Bloque 1 · Modulo hero (d2) · nube del logo + tres placas de lectura
+     Bloque 1 · Modulo hero (d5) · nube del logo + tres placas de lectura
      ------------------------------------------------------------------------ */
   .machine__side .machine__hero {
     position: relative;
@@ -6241,7 +6243,7 @@ body.is-demo .machine__side .controls .balance::after {
     padding: 0;
     border: 0;
     border-radius: 0;
-    background: url('../assets/d2.webp') no-repeat center / 100% 100%;
+    background: url('../assets/d5.webp') no-repeat center / 100% 100%;
     box-shadow: none;
     overflow: visible;
   }
@@ -6251,16 +6253,25 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .machine__hero::before { display: none; }
   .machine__side .machine__spark { display: none; }
 
-  /* La pegatina del logo: mas grande que la nube y desbordando por arriba.
-     `translate` centra la caja sobre el punto del dibujo y `rotate` le da el
-     aire desenfadado; la animacion sigue moviendo `transform`, que se compone
-     con las propiedades individuales y no las pisa. */
+  /* La pegatina del logo: mas grande que el hueco de la nube y desbordando por
+     arriba y por los lados. `translate` centra la caja sobre el punto del
+     dibujo y `rotate` le da el aire desenfadado; la animacion sigue moviendo
+     `transform`, que se compone con las propiedades individuales y no las pisa.
+     Medidas sobre d5.webp: el hueco transparente de la nube (por el que se ve
+     el fondo) se abre entre x 30,9 y 70,5 % en su punto mas ancho (y 57,4 %) y
+     cierra en y 68,5 %, mientras que las placas arrancan en 75,8 %. Como el
+     logo mide 493/509 (alto = 1,4575 x su ancho expresado en % de --hero-h),
+     un 54 % de ancho da 78,7 % de alto: centrado en 34,3 % apoya sus letras en
+     71,3 % (4,5 % de aire sobre las placas) y desborda 5 % por arriba. Es el
+     tope que deja el `overflow: hidden` de `.machine`: la animacion sube la
+     caja 7 px y la escala un 3 % (otros ~5 px en 1366 x 768), asi que con 5 %
+     de sobrante el filo del logo nunca se recorta. */
   .machine__side .machine__logo {
     position: absolute;
-    left: 50%;
-    top: 35.4%;
+    left: 50.82%;
+    top: 34.3%;
     z-index: 6;
-    width: 56%;
+    width: 54%;
     height: auto;
     aspect-ratio: 493 / 509;
     max-width: none;
@@ -6279,10 +6290,13 @@ body.is-demo .machine__side .controls .balance::after {
 
   /* ------------------------------------------------------------------------
      Bloque 2 · Las tres placas ciruela del hero
-     Anclajes medidos sobre d2.webp (605 x 443) con segmentacion de color: las
-     placas van de x 6,28 % a 92,56 % con 3,22 % de separacion, y su banda mide
-     18,28 % de alto. Se reparte con `fr` en esas mismas proporciones para que
-     el ancho de cada placa sea el del dibujo, no un tercio exacto.
+     Anclajes medidos sobre d5.webp (1471 x 1042) con segmentacion de color: el
+     interior ciruela de las placas va de x 5,64 % a 94,49 % (28,21 / 25,42 /
+     28,55 % de ancho, separadas 3,27 % y 3,40 %) y su banda mide 16,03 % de
+     alto (y 75,82-91,84 %). Los tracks se declaran en % del propio `.hud`
+     (28,21 → 31,73 %; 25,42 → 28,59 %; 28,55 → 32,11 %; separacion media
+     3,335 → 3,75 %) para que el centro de cada celda caiga en el centro exacto
+     de su placa, con un error menor a 0,1 % del ancho del dibujo.
      ------------------------------------------------------------------------ */
   .machine__side .hud {
     position: absolute;
@@ -6290,18 +6304,18 @@ body.is-demo .machine__side .controls .balance::after {
        columna: el anclaje vertical se mide con `--hero-h`, que es el alto real
        del modulo, y el horizontal en % del ancho de la columna (el mismo que
        el del dibujo). */
-    left: 6.28%;
-    top: calc(var(--hero-h) * 0.7585);
-    width: 86.28%;
-    height: calc(var(--hero-h) * 0.1828);
+    left: 5.64%;
+    top: calc(var(--hero-h) * 0.7582);
+    width: 88.92%;
+    height: calc(var(--hero-h) * 0.1602);
     /* Sobre el dibujo del hero (`z-index: 3`), que es hermano suyo y por tanto
        se pintaba encima de estas placas. */
     z-index: 5;
     display: grid;
-    grid-template-columns: 26.94fr 26.94fr 25.95fr;
+    grid-template-columns: 31.73% 28.59% 32.11%;
     grid-template-rows: 100%;
     align-items: stretch;
-    column-gap: 3.22%;
+    column-gap: 3.75%;
     row-gap: 0;
     margin: 0;
     padding: 0;
@@ -6971,7 +6985,11 @@ body.is-demo .machine__side .controls .balance::after {
    -------------------------------------------------------------------------- */
 @media (min-width: 900px) and (max-height: 660px) {
   .machine__side .machine__hero { display: block; }
-  .machine__side .machine__logo { width: 50%; top: 34.4%; }
+  /* Un poco mas pequeño que en el caso general para no asomar tanto cuando no
+     hay alto: 45 % de ancho deja el alto en 65,6 % del hero, asi que su centro
+     cae en 36,7 % y las letras apoyan en 67,6 % (8,2 % de aire sobre las
+     placas). */
+  .machine__side .machine__logo { width: 45%; top: 36.7%; }
 }
 
 /* Ventanas de menos de 470 px de alto: la placa del hero mide ~50 px y el

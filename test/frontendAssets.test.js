@@ -575,13 +575,13 @@ test('el arte de las dos maquinas se sirve con su lienzo exacto y los maestros q
   // lo centra con aire y los controles se salen del arte.
   //
   // Movil (`build-mobile-art.js`): marco y consola recortados al alfa.
-  // Escritorio (`build-desktop-art.js`): d1 (marco del tablero), d2 (modulo
+  // Escritorio (`build-desktop-art.js`): d1 (marco del tablero), d5 (modulo
   // hero + placas) y d3 (consola), a q=90 y con el mismo contrato de lienzo.
   const pieces = [
     { name: 'marco_movil', size: '1392x1123', max: 300 * 1024, build: 'build-mobile-art.js' },
     { name: 'consola_movil', size: '1783x693', max: 300 * 1024, build: 'build-mobile-art.js' },
     { name: 'd1', size: '1017x819', max: 300 * 1024, build: 'build-desktop-art.js' },
-    { name: 'd2', size: '605x443', max: 260 * 1024, build: 'build-desktop-art.js' },
+    { name: 'd5', size: '1471x1042', max: 560 * 1024, build: 'build-desktop-art.js' },
     { name: 'd3', size: '599x468', max: 300 * 1024, build: 'build-desktop-art.js' }
   ];
   const css = read(STYLE_PATH);
@@ -632,7 +632,7 @@ test('el arte de las dos maquinas se sirve con su lienzo exacto y los maestros q
 
   // El arte de escritorio se compila a q=90 y el comando queda registrado.
   const desktop = fs.readFileSync(path.join(ROOT_DIR, 'scripts', 'build-desktop-art.js'), 'utf8');
-  for (const name of ['d1', 'd2', 'd3']) {
+  for (const name of ['d1', 'd5', 'd3']) {
     const block = desktop.slice(desktop.indexOf(`name: '${name}'`));
     assert.match(block.slice(0, 200), /quality: 90,/, `${name} se compila a calidad 90`);
   }
@@ -643,13 +643,19 @@ test('el arte de las dos maquinas se sirve con su lienzo exacto y los maestros q
   // en % del lienzo (las mismas medidas que imprime el script). Se buscan todas
   // las reglas del selector: las capas anteriores tambien declaran cajas para
   // estos botones y solo una lleva la geometria del arte.
-  for (const name of ['d1', 'd2', 'd3']) {
+  for (const name of ['d1', 'd5', 'd3']) {
     assert.match(
       css,
       new RegExp(`url\\('\\.\\.\\/assets\\/${name}\\.webp'\\) no-repeat center \\/ 100% 100%`),
       `El CSS debe pintar ${name}.webp sin aire (100% 100%)`
     );
   }
+  // El arte antiguo del hero ya no se sirve ni se pinta.
+  assert.doesNotMatch(css, /d2\.webp/, 'El CSS ya no debe referenciar d2.webp');
+  assert.ok(
+    !fs.existsSync(path.join(PUBLIC_DIR, 'src', 'assets', 'd2.webp')),
+    'd2.webp no debe servirse: lo sustituye d5.webp'
+  );
   const bodies = (selector) => [...css.matchAll(new RegExp(`${selector} \\{([^}]*)\\}`, 'g'))]
     .map((match) => match[1]);
   const spinBodies = bodies('\\.machine__side \\.controls \\.btn--spin');
@@ -668,6 +674,65 @@ test('el arte de las dos maquinas se sirve con su lienzo exacto y los maestros q
       `La ventana de d1 se cubre con \`${declaration}\``
     );
   }
+
+  // Geometria del hero de escritorio (d5 · 1471 x 1042): el lienzo manda en la
+  // columna lateral y las placas se reparten con las proporciones reales del
+  // dibujo, no con tercios, para que cada dato caiga en el centro de su placa.
+  assert.match(
+    css,
+    /--side-w: calc\(\(var\(--frame-h\) - var\(--d-gap-y\)\) \/ 1\.48966\)/,
+    'La columna lateral reparte su alto con 1042/1471 (hero) + 468/599 (consola)'
+  );
+  assert.match(
+    css,
+    /--hero-h: calc\(var\(--side-w\) \* 0\.70836\)/,
+    'El hero mide 1042/1471 de su ancho'
+  );
+  assert.match(
+    css,
+    /--frame-h: min\([\s\S]{0,180}?\/ 1\.91305\)/,
+    'El marco descuenta la columna lateral con 1,24176 (d1) + 0,67129 (d5 + d3)'
+  );
+
+  const heroBodies = bodies('\\.machine__side \\.machine__hero');
+  assert.ok(heroBodies.length, 'El hero debe declarar su caja');
+  assert.ok(
+    heroBodies.some((body) => body.includes('height: var(--hero-h);')),
+    'El hero ocupa el alto que le da `--hero-h`'
+  );
+
+  const hudBodies = bodies('\\.machine__side \\.hud');
+  assert.ok(hudBodies.length, 'Las placas deben declarar su banda sobre el dibujo');
+  for (const declaration of [
+    'left: 5.64%;',
+    'top: calc(var(--hero-h) * 0.7582);',
+    'width: 88.92%;',
+    'height: calc(var(--hero-h) * 0.1602);',
+    'grid-template-columns: 31.73% 28.59% 32.11%;',
+    'column-gap: 3.75%;'
+  ]) {
+    assert.ok(
+      hudBodies.some((body) => body.includes(declaration)),
+      `Las placas se anclan al dibujo con \`${declaration}\``
+    );
+  }
+
+  const logoBodies = bodies('\\.machine__side \\.machine__logo');
+  assert.ok(logoBodies.length, 'El logo debe declarar su caja sobre la nube');
+  for (const declaration of ['left: 50.82%;', 'top: 34.3%;', 'width: 54%;']) {
+    assert.ok(
+      logoBodies.some((body) => body.includes(declaration)),
+      `El logo se apoya en el hueco de d5 con \`${declaration}\``
+    );
+  }
+  assert.ok(
+    logoBodies.some((body) => body.includes('top: 34.3%;') && body.includes('width: 54%;')),
+    'El logo cubre la nube de d5 y asoma por arriba del modulo'
+  );
+  assert.ok(
+    logoBodies.some((body) => body.includes('width: 45%;') && body.includes('top: 36.7%;')),
+    'En ventanas bajas el logo mantiene la base con un 45 % de ancho'
+  );
   // El case de escritorio responde como un pulsador de arcade: se hunde un 5 %
   // (y con el, su trozo de dibujo) y suelta un destello especular al pasar el
   // cursor o al pulsar.
