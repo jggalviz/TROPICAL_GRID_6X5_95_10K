@@ -459,21 +459,21 @@ test('la consola y el tablero comparten el mismo eje X en movil', () => {
     'Sin padding propio: el aire lateral lo pone `.app` y es simetrico'
   );
   // El ancho sale del alto libre menos la separacion, repartido entre la
-  // relacion del marco (1 / 1,3490, ya estirada un 4,4 % en vertical para que
-  // la ventana del tablero gane aire) y la de la consola (1 / 2,5729).
+  // relacion del marco (1 / 1,2395, la del recorte 1392 x 1123 sin estirar) y la
+  // de la consola (1 / 2,5729).
   // `cqw`/`cqh` en lugar de `%`: dentro de una custom property un `%` se
   // resuelve contra la propiedad que la usa, y el mismo token medía el ancho en
   // `width` y el alto en `height` (el HUD caía 12 px bajo sus placas).
   assert.match(
     machineGrid[0],
-    /--m-w:\s*min\(100cqw,\s*calc\(\(100cqh - clamp\(4px, 1\.2dvh, 10px\)\) \/ 1\.1298\)\);/,
+    /--m-w:\s*min\(100cqw,\s*calc\(\(100cqh - clamp\(4px, 1\.2dvh, 10px\)\) \/ 1\.1954\)\);/,
     'El ancho de la maquina descuenta marco + separacion + consola del alto libre'
   );
 
   // 2) Las dos piezas se miden con esa unidad y con la relacion exacta de su
   //    lienzo (`contain` sobre una caja con esa relacion llena el 100%).
-  const frameRule = css.match(/\.machine__table\s*\{[^}]*aspect-ratio:\s*1325 \/ 982;[^}]*\}/);
-  assert.ok(frameRule, 'El marco debe declarar su relacion 1325/982 (4,4 % mas alto que el recorte)');
+  const frameRule = css.match(/\.machine__table\s*\{[^}]*aspect-ratio:\s*1392 \/ 1123;[^}]*\}/);
+  assert.ok(frameRule, 'El marco debe declarar la relacion exacta de su recorte, 1392/1123');
   assert.match(frameRule[0], /width:\s*var\(--m-w\);/, 'El marco se mide con `--m-w`');
 
   const caseRule = css.match(
@@ -494,12 +494,49 @@ test('la consola y el tablero comparten el mismo eje X en movil', () => {
   );
 
   // 3) El tablero tapa la ventana transparente del marco con % del recorte
-  //    (medido: x 8,4-94,1 %, y 26,1-97,9 %), con un pelo de aire por fuera
+  //    (medido: x 6,25-93,97 %, y 38,02-95,64 %), con un pelo de aire por fuera
   //    para que su filo se meta bajo el borde rosa y no asome el fondo.
   assert.match(
     css,
-    /\.machine__table \.board\s*\{[^}]*position:\s*absolute;[^}]*left:\s*8\.35%;[^}]*top:\s*26%;[^}]*width:\s*85\.9%;[^}]*height:\s*72\.2%;[^}]*\}/,
+    /\.machine__table \.board\s*\{[^}]*position:\s*absolute;[^}]*left:\s*6\.20%;[^}]*top:\s*37\.90%;[^}]*width:\s*87\.81%;[^}]*height:\s*57\.85%;[^}]*\}/,
     'El tablero se coloca en la ventana del marco, no en el flujo de la fila'
+  );
+
+  // 4) La marca y el HUD caen sobre sus huecos del arte nuevo: el claro del arco
+  //    se centra en 21,88 % del ancho y su borde inferior queda a 29,12 % del
+  //    alto, y la franja de placas ciruela va de 40,88 a 93,18 % del ancho y de
+  //    23,33 a 29,74 % del alto del recorte.
+  const hudRule = css.match(
+    /\.machine__side \.hud\s*\{[^}]*width:\s*calc\(var\(--m-w\) \* 0\.5230\);[^}]*\}/
+  );
+  assert.ok(hudRule, 'El HUD debe medir la franja exacta de las tres placas');
+  assert.match(
+    hudRule[0],
+    /height:\s*calc\(var\(--frame-h\) \* 0\.0641\);/,
+    'La franja mide el alto interior de las placas ciruela'
+  );
+  assert.match(
+    hudRule[0],
+    /margin-left:\s*calc\(\(100% - var\(--m-w\)\) \/ 2 \+ var\(--m-w\) \* 0\.4088\);/,
+    'La franja arranca en la primera placa del toldo'
+  );
+  assert.match(
+    hudRule[0],
+    /margin-top:\s*calc\(var\(--frame-h\) \* 0\.2333\);/,
+    'La franja cae sobre el toldo y no sobre la ventana'
+  );
+
+  const heroRule = css.match(/\.machine__side \.machine__hero\s*\{[^}]*--logo-h:[\s\S]*?\n  \}/);
+  assert.ok(heroRule, 'La marca debe declarar su caja sobre el arco');
+  assert.match(
+    heroRule[0],
+    /var\(--m-w\) \* 0\.2188 - var\(--logo-w\) \/ 2/,
+    'El logo se centra en el claro del arco'
+  );
+  assert.match(
+    heroRule[0],
+    /bottom:\s*calc\(var\(--frame-h\) \* 0\.7088\);/,
+    'La base del logo se apoya en el borde inferior del claro'
   );
 });
 test('el arte de las dos maquinas se sirve con su lienzo exacto y los maestros quedan fuera de public/', () => {
@@ -511,7 +548,7 @@ test('el arte de las dos maquinas se sirve con su lienzo exacto y los maestros q
   // Escritorio (`build-desktop-art.js`): d1 (marco del tablero), d2 (modulo
   // hero + placas) y d3 (consola), a q=90 y con el mismo contrato de lienzo.
   const pieces = [
-    { name: 'marco_movil', size: '1325x941', max: 460 * 1024, build: 'build-mobile-art.js' },
+    { name: 'marco_movil', size: '1392x1123', max: 300 * 1024, build: 'build-mobile-art.js' },
     { name: 'consola_movil', size: '1783x693', max: 300 * 1024, build: 'build-mobile-art.js' },
     { name: 'd1', size: '1017x819', max: 300 * 1024, build: 'build-desktop-art.js' },
     { name: 'd2', size: '605x443', max: 260 * 1024, build: 'build-desktop-art.js' },

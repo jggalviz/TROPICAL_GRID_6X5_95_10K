@@ -14,8 +14,13 @@
  * descentraria el dibujo y desalinearia las areas tactiles.
  *
  * Piezas:
- *   design/marco_movil.png   -> public/src/assets/marco_movil.webp   (1325 x 941)
+ *   design/marco_movil.png   -> public/src/assets/marco_movil.webp   (1392 x 1123)
  *   design/consola_movil.png -> public/src/assets/consola_movil.webp (1783 x 693)
+ *
+ * `design/marco_movil_v1.png` es el maestro anterior (toldo con la nube rosa a
+ * la izquierda, 1325 x 941 tras el recorte). Se conserva como referencia: el
+ * dueño del marco vigente es siempre `design/marco_movil.png`, de modo que el
+ * CSS y esta tabla hablan siempre de la misma pieza.
  *
  * El script, para cada pieza:
  *   1. mide el bbox de los pixeles con alfa visible;
@@ -43,9 +48,9 @@ const DEPLOY_DIR = path.join(ROOT, '.vercel', 'output', 'static', 'src', 'assets
 const PIECES = [
   {
     name: 'marco_movil',
-    canvas: { width: 1325, height: 941 },
-    quality: 88,
-    maxBytes: 460 * 1024
+    canvas: { width: 1392, height: 1123 },
+    quality: 90,
+    maxBytes: 300 * 1024
   },
   {
     name: 'consola_movil',
