@@ -17,6 +17,8 @@ import {
   symbolMeta
 } from './format.js';
 import { createFx } from './fx.js';
+import { columnsFromMatrix } from './reelMath.js';
+import { createReels } from './reels.js';
 
 const REDUCED_MOTION = typeof window.matchMedia === 'function'
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -37,6 +39,10 @@ const DROP_STAGGER = 60;
 const DROP_ROW_STAGGER = 6;
 const DROP_MS = 300;
 const DROP_LAND_RATIO = 0.7;
+
+/* Dimensiones del tablero: cada columna es un rodillo. */
+const ROWS = 5;
+const COLS = 6;
 
 export const TIMING = Object.freeze({
   reel: base(300),
@@ -73,10 +79,14 @@ export class Ui {
     this.isDemo = false;
     this.demoCurrency = 'VES';
     this.demoStartCredits = 1000;
-    this.handlers = { onSound: null };
+    this.handlers = { onSound: null, onReelLand: null };
 
     /* Capa de particulas y celebraciones (se monta en `mount`). */
     this.fx = null;
+    /* Rodillos: cada columna del tablero es un carril animado. */
+    this.reels = null;
+    /* Imagenes de simbolos precargadas para que el reciclado no parpadee. */
+    this.preloaded = null;
     /* Conteo ascendente de la ganancia: valor mostrado y frame pendiente. */
     this.winShownCents = 0;
     this.winRaf = 0;
@@ -163,37 +173,71 @@ export class Ui {
     const grid = this.refs.grid;
     grid.textContent = '';
     this.tiles = [];
-    for (let row = 0; row < 5; row += 1) {
-      for (let col = 0; col < 6; col += 1) {
-        const tile = document.createElement('div');
-        tile.className = 'tile';
-        tile.dataset.sym = 'S1';
-        tile.dataset.row = String(row);
-        tile.dataset.col = String(col);
-        const image = document.createElement('img');
-        image.className = 'tile__img';
-        image.alt = '';
-        image.decoding = 'async';
-        image.draggable = false;
-        image.addEventListener('error', () => {
-          image.hidden = true;
-          const fallback = tile.querySelector('.tile__glyph');
-          if (fallback) fallback.hidden = false;
-        });
 
-        const glyph = document.createElement('span');
-        glyph.className = 'tile__glyph';
-        glyph.setAttribute('aria-hidden', 'true');
+    this.reels = createReels({
+      grid,
+      rows: ROWS,
+      columns: COLS,
+      symbols: SYMBOL_KEYS,
+      createCell: (row, col) => this.createTile_(row, col),
+      paint: (cell, symbol, bombValue) => this.paintCell_(cell, symbol, bombValue),
+      /* Al aterrizar cada carril sus casillas visibles cambian de nodo: la
+         lista `tiles` se reengancha para que premios, bombas y cascadas sigan
+         apuntando a lo que el jugador ve. */
+      onLand: (col, cells) => {
+        this.syncColumn_(col, cells);
+        if (typeof this.handlers.onReelLand === 'function') this.handlers.onReelLand(col);
+      },
+      onAllLanded: () => this.dropImpact()
+    });
 
-        tile.append(image, glyph);
-        grid.appendChild(tile);
-        this.tiles.push(tile);
-      }
+    this.reels.mount();
+
+    for (const { row, col, el } of this.reels.visibleCells()) {
+      this.tiles[row * COLS + col] = el;
     }
   }
 
-  setTile(index, symbol, bombValue = 0) {
-    const tile = this.tiles[index];
+  /** Casilla: imagen del simbolo con glifo accesible de reserva. */
+  createTile_(row, col) {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.dataset.sym = 'S1';
+    tile.dataset.row = String(row);
+    tile.dataset.col = String(col);
+
+    const image = document.createElement('img');
+    image.className = 'tile__img';
+    image.alt = '';
+    image.decoding = 'async';
+    image.draggable = false;
+    image.addEventListener('error', () => {
+      image.hidden = true;
+      const fallback = tile.querySelector('.tile__glyph');
+      if (fallback) fallback.hidden = false;
+    });
+
+    const glyph = document.createElement('span');
+    glyph.className = 'tile__glyph';
+    glyph.setAttribute('aria-hidden', 'true');
+
+    tile.append(image, glyph);
+    return tile;
+  }
+
+  /** Fija la columna del carril tras su aterrizaje. */
+  syncColumn_(col, cells) {
+    for (let row = 0; row < ROWS; row += 1) {
+      const tile = cells[row];
+      if (!tile) continue;
+      /* El nodo puede venir de la cascada anterior: se limpia antes de que
+         `highlightCells` lo marque como premio. */
+      tile.classList.remove('tile--drop', 'tile--win', 'tile--scatter', 'tile--pop');
+      this.tiles[row * COLS + col] = tile;
+    }
+  }
+
+  paintCell_(tile, symbol, bombValue = 0) {
     if (!tile) return;
     const meta = symbol ? symbolMeta(symbol) : null;
     const image = tile.querySelector('.tile__img');
@@ -231,25 +275,47 @@ export class Ui {
     }
   }
 
+  setTile(index, symbol, bombValue = 0) {
+    this.paintCell_(this.tiles[index], symbol, bombValue);
+  }
+
+  /** Matriz del servidor -> columnas del rodillo con su bomba. */
+  columns_(matrix, bombs = []) {
+    const bombMap = new Map();
+    for (const bomb of bombs || []) bombMap.set(bomb.r * COLS + bomb.c, bomb.value);
+
+    return columnsFromMatrix(matrix, { rows: ROWS, columns: COLS }).map((column, col) =>
+      column.map((symbol, row) => ({ sym: symbol, bomb: bombMap.get(row * COLS + col) || 0 })));
+  }
+
   /**
    * Pinta una matriz del servidor (`grid[row][col]`).
+   *
+   * Con los rodillos girando no se pinta a mano: se ordena la parada de cada
+   * carril, que inyecta el resultado mientras frena y lo fija al aterrizar.
+   *
    * @param {Array<Array<string>>} matrix
    * @param {Array<{r:number,c:number,value:number}>} [bombs]
    * @param {{drop?: boolean}} [options]
+   * @returns {number} ms que dura la entrada del tablero (0 sin animacion)
    */
   renderGrid(matrix, bombs = [], { drop = true } = {}) {
-    const bombMap = new Map();
-    for (const bomb of bombs || []) bombMap.set(bomb.r * 6 + bomb.c, bomb.value);
+    if (drop && this.reels && this.reels.isSpinning()) {
+      return this.reels.stop(this.columns_(matrix, bombs));
+    }
 
-    for (let row = 0; row < 5; row += 1) {
-      for (let col = 0; col < 6; col += 1) {
-        const index = row * 6 + col;
+    const bombMap = new Map();
+    for (const bomb of bombs || []) bombMap.set(bomb.r * COLS + bomb.c, bomb.value);
+
+    for (let row = 0; row < ROWS; row += 1) {
+      for (let col = 0; col < COLS; col += 1) {
+        const index = row * COLS + col;
         const symbol = matrix && matrix[row] ? matrix[row][col] : null;
-        this.setTile(index, symbol, bombMap.get(index) || 0);
+        this.paintCell_(this.tiles[index], symbol, bombMap.get(index) || 0);
       }
     }
 
-    if (drop) this.playDrop();
+    return drop ? this.playDrop() : 0;
   }
 
   renderPlaceholderGrid() {
@@ -273,11 +339,11 @@ export class Ui {
     let lastDelay = 0;
 
     this.tiles.forEach((tile, index) => {
-      tile.classList.remove('tile--drop', 'tile--win', 'tile--pop', 'tile--spinning');
+      tile.classList.remove('tile--drop', 'tile--win', 'tile--pop');
       if (REDUCED_MOTION) return;
 
-      const row = Math.floor(index / 6);
-      const col = index % 6;
+      const row = Math.floor(index / COLS);
+      const col = index % COLS;
       const delay = col * DROP_STAGGER + row * DROP_ROW_STAGGER;
       if (delay > lastDelay) lastDelay = delay;
 
@@ -315,11 +381,48 @@ export class Ui {
 
   startSpinning() {
     if (this.fx) this.fx.clear();
-    this.tiles.forEach((tile, index) => {
-      tile.classList.remove('tile--drop', 'tile--win', 'tile--pop', 'tile--spinning');
-      tile.classList.add('tile--spinning');
-      this.setTile(index, SYMBOL_KEYS[(index + this.tiles.length) % SYMBOL_KEYS.length], 0);
-    });
+    this.clearHighlights();
+    this.preloadSymbols_();
+
+    if (!this.reels || !this.reels.start()) {
+      /* Movimiento reducido (o tablero sin montar): sin giro, pero con
+         feedback inmediato para que la tirada no parezca congelada. */
+      this.tiles.forEach((tile, index) => {
+        this.paintCell_(tile, SYMBOL_KEYS[(index + 3) % SYMBOL_KEYS.length], 0);
+      });
+    }
+  }
+
+  /**
+   * Giro completo de los rodillos con el resultado ya resuelto por el servidor.
+   *
+   * Es la API comoda para probar el efecto o para integrarlo desde otra capa:
+   * arranca (anticipacion + motion blur), para de izquierda a derecha con
+   * rebote y resuelve cuando el ultimo carril ha aterrizado.
+   *
+   * @param {Array<Array<string>>} targetSymbols matriz `matrix[row][col]`
+   * @param {{bombs?: Array<{r:number,c:number,value:number}>}} [options]
+   * @returns {Promise<number>} ms de la secuencia
+   */
+  async spin(targetSymbols, { bombs = [] } = {}) {
+    if (!this.reels) return 0;
+    this.clearHighlights();
+    const ms = await this.reels.spin(this.columns_(targetSymbols, bombs));
+    return ms;
+  }
+
+  /** Precarga las imagenes de los simbolos: el reciclado no debe parpadear. */
+  preloadSymbols_() {
+    if (this.preloaded || typeof Image !== 'function') return;
+    this.preloaded = [];
+    for (const key of SYMBOL_KEYS) {
+      const meta = symbolMeta(key);
+      if (!meta || !meta.image) continue;
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = meta.image;
+      this.preloaded.push(image);
+    }
   }
 
   clearHighlights() {

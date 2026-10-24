@@ -473,8 +473,6 @@ button:disabled { cursor: not-allowed; }
 .tile--empty .tile__glyph { opacity: 0; }
 
 /* Estados de animacion */
-.tile--spinning { animation: tile-blur 0.35s linear infinite; }
-
 /* Caida en cascada: el retardo por columna llega en `--drop-delay` (lo fija
    `playDrop` y lo hereda la imagen). Solo cae el simbolo: el marco de la celda
    se queda fijo, asi la cascada se lee como fichas que bajan por su carril y no
@@ -522,11 +520,6 @@ button:disabled { cursor: not-allowed; }
 
 .tile--scatter {
   animation: tile-scatter 0.8s ease-in-out infinite alternate;
-}
-
-@keyframes tile-blur {
-  0%, 100% { filter: blur(0); }
-  50% { filter: blur(2px); }
 }
 
 @keyframes tile-drop {
@@ -7253,6 +7246,89 @@ body.is-demo .machine__side .controls .balance::after {
 @keyframes mega-sheen {
   from { transform: translate3d(-72%, 0, 0); }
   to { transform: translate3d(72%, 0, 0); }
+}
+
+/* --------------------------------------------------------------------------
+   Rodillos
+   Cada columna del tablero es un carril: `.reel__strip` es la tira de simbolos
+   y `.reel__body` la que se desplaza. Solo se animan `transform` (carril) y
+   `filter` (desenfoque de movimiento): nada de layout, `box-shadow` ni
+   `backdrop-filter` durante el giro.
+   -------------------------------------------------------------------------- */
+
+.grid > .reel {
+  position: relative;
+  /* Las seis columnas del grid son los seis carriles. */
+  grid-row: 1 / -1;
+  min-width: 0;
+  min-height: 0;
+  /* `clip` con margen: recorta los simbolos de reserva (una casilla fuera de la
+     ventana) sin cortar el halo dorado de `tile--win`, que sangra ~15 px. */
+  overflow: clip;
+  overflow-clip-margin: 18px;
+}
+
+.reel__body,
+.reel__strip {
+  position: absolute;
+  inset: 0;
+}
+
+.reel__strip {
+  display: flex;
+  flex-direction: column;
+  /* `--reel-step` lo fija `reels.js` al medir: alto de casilla + hueco. La tira
+     arranca una casilla arriba para que la fila 0 caiga en la ventana. */
+  transform: translate3d(0, calc(-1 * var(--reel-step, 0px)), 0);
+}
+
+.reel__strip > .tile {
+  flex: 0 0 var(--reel-cell, auto);
+  height: var(--reel-cell, auto);
+}
+
+/* Anticipacion: micro subida y caida con back-ease-in antes de que la tira
+   empiece a correr. El retardo por carril llega en `--reel-delay`. */
+.reel.is-anticipating .reel__body {
+  animation: reel-anticipate var(--reel-anticipation, 140ms) var(--reel-delay, 0ms)
+    cubic-bezier(0.6, -0.28, 0.735, 0.045) both;
+}
+
+@keyframes reel-anticipate {
+  0% { transform: translate3d(0, 0, 0); }
+  45% { transform: translate3d(0, calc(-1 * var(--reel-anticipate-y, 7px)), 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* Rebote: al aterrizar el carril se pasa de la celda y vuelve con overshoot. La
+   animacion gana al `transform` inline del carril, asi que al quitar la clase
+   queda exactamente en su sitio (sin saltos). */
+.reel.is-landed .reel__body {
+  animation: reel-snap var(--reel-bounce, 240ms)
+    cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes reel-snap {
+  0% { transform: translate3d(0, 0, 0); }
+  32% { transform: translate3d(0, var(--reel-bounce-y, 8px), 0); }
+  60% { transform: translate3d(0, calc(-0.34 * var(--reel-bounce-y, 8px)), 0); }
+  82% { transform: translate3d(0, calc(0.12 * var(--reel-bounce-y, 8px)), 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* Motion blur: se promueve el carril y se apagan los filtros caros de las
+   casillas (42 `backdrop-filter` y `drop-shadow` rasterizando el fondo son lo
+   mas caro del tablero). El desenfoque tapa el detalle durante el giro. */
+.reel.is-spinning { will-change: filter; }
+.reel.is-spinning .reel__body { will-change: transform; }
+.reel.is-spinning .tile { backdrop-filter: none; }
+.reel.is-spinning .tile__img { filter: none; }
+.reel.is-spinning .tile:hover .tile__img { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reel.is-anticipating .reel__body,
+  .reel.is-landed .reel__body { animation: none; }
+  .reel.is-spinning { will-change: auto; filter: none !important; }
 }
 
 /* Movimiento reducido: los estados siguen existiendo (no rompen el flujo del

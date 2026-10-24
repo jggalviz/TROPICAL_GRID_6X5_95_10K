@@ -69,6 +69,8 @@ export class GameClient {
     this.lastDemoError = null;
 
     this.ui.handlers.onSound = () => this.toggleSound();
+    /* Cada rodillo suena al aterrizar: da el "clack" escalonado del frenado. */
+    this.ui.handlers.onReelLand = (col) => this.sfx.drop(col);
   }
 
   /* ------------------------------------------------------------- arranque */
@@ -410,9 +412,11 @@ export class GameClient {
 
     this.ui.clearHighlights();
     const firstBombs = spin.cascades && spin.cascades.length ? spin.cascades[0].bombs : spin.bombs;
-    this.ui.renderGrid(spin.initialGrid, firstBombs, { drop: true });
+    /* `renderGrid` devuelve lo que tarda el tablero en entrar: con los rodillos
+       girando es la parada escalonada completa (mas larga que `TIMING.drop`). */
+    const landMs = this.ui.renderGrid(spin.initialGrid, firstBombs, { drop: true });
     this.sfx.drop(index);
-    await sleep(TIMING.drop);
+    await sleep(Math.max(TIMING.drop, landMs || 0));
 
     if (spin.scatter && spin.scatter.count >= 3) {
       this.ui.highlightCells(spin.scatter.cells, 'tile--scatter');
@@ -440,14 +444,14 @@ export class GameClient {
       this.ui.setWin(running, { roll: true });
 
       const bombsAfter = step.bombsAfter || [];
-      this.ui.renderGrid(step.gridAfter, bombsAfter, { drop: true });
+      const dropMs = this.ui.renderGrid(step.gridAfter, bombsAfter, { drop: true });
       if (bombsAfter.length > bombsSeen) {
         this.sfx.bomb();
         this.ui.shakeGrid();
       }
       bombsSeen = bombsAfter.length;
       this.sfx.drop(step.index + 1);
-      await sleep(TIMING.drop);
+      await sleep(Math.max(TIMING.drop, dropMs || 0));
     }
 
     this.ui.clearHighlights();
