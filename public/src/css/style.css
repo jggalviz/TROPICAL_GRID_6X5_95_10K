@@ -4655,11 +4655,12 @@ body.is-demo .machine__side .controls .balance::after {
    control cae sobre su zona medida en cualquier ancho de móvil.
 
    Orden visual del arte:
-     marco   · nube con el logo  |  APUESTA · GANANCIA · MULTIPLICADOR  |
+     marco   · nube con el logo  |  SALDO · GANANCIA · MULTIPLICADOR  |
                ventana del tablero (6 x 5)
      consola · discos FEVER (…) · AUTO (↻) · [ GIRAR ] · − · +
-               placas del pie: SALDO (1ª) · AUTO (2ª) · estado (3ª) ·
-               APUESTA + MAX (4ª)
+               placas del pie: MÁS (1ª) · AUTO (2ª) · GIRAR + estado (3ª) ·
+               APUESTA + MAX (4ª). Las cuatro llegan vacías en el dibujo: los
+               rótulos los pinta el CSS sobre su placa (sección 6).
    ========================================================================== */
 
 @media (max-width: 899px) {
@@ -4687,7 +4688,11 @@ body.is-demo .machine__side .controls .balance::after {
     align-items: start;
     justify-items: center;
     justify-content: stretch;
-    row-gap: clamp(4px, 1.2dvh, 10px);
+    /* La separación marco-consola es, además, la distancia entre la consola y la
+       franja del HUD (otra fila de la misma rejilla): se guarda en un token para
+       que el saldo suba hasta su placa sin repetir el número. */
+    --row-gap: clamp(4px, 1.2dvh, 10px);
+    row-gap: var(--row-gap);
     /* El aire lateral ya lo pone `.app`: aqui no se resta ancho al tablero. */
     padding: 0;
     /* Ancho de la máquina: el menor entre el que cabe a lo ancho y el que deja
@@ -4731,25 +4736,28 @@ body.is-demo .machine__side .controls .balance::after {
     position: absolute;
     /* Pegatina: por encima del dibujo del marco y de las chispas del toldo. */
     z-index: 6;
-    /* Alto del logo: el que cabe entre el borde de la ventana (25,6 % del alto
-       del marco) y el aire que deja la fila, con el tamaño de diseño como tope.
-       Así el dibujo sobresale del marco cuando hay sitio y, cuando el alto del
-       viewport manda (tablet vertical, móvil apaisado), se encoge en vez de
-       caer sobre la primera fila del tablero o quedar recortado por `.machine`.
-       0,9686 = 493 / 509, la proporción del PNG. */
+    /* Alto del logo: 37,2 % del ancho del marco (~141 px a 390 px), un 20 % más
+       que el tamaño anterior, para que la marca domine el toldo. El segundo
+       término es el tope cuando manda el alto del viewport (tablet vertical,
+       móvil apaisado): 0,9686 = 493 / 509, la proporción del PNG. */
     --logo-h: min(
-      calc(var(--m-w) * 0.31),
-      calc(var(--frame-h) * 0.245 + max(0px, (100cqh - var(--m-w) * 1.1298) / 2))
+      calc(var(--m-w) * 0.372),
+      calc(var(--frame-h) * 0.30 + max(0px, (100cqh - var(--m-w) * 1.1298) / 2))
     );
     width: calc(var(--logo-h) * 0.9686);
     height: var(--logo-h);
     /* El logo arranca en el borde izquierdo del marco: el 0,4 % de tinta que
        deja el PNG hace que el dibujo caiga justo dentro y la nube quede debajo.
-       30 % del ancho llena la nube y muere justo antes de la primera placa. */
+       A este tamaño la tinta llega a ~93,7 % del ancho del PNG en la banda del
+       HUD (y 59-84 % de su alto), o sea hasta ~28 % del ancho del marco: se
+       superpone al filo izquierdo de la primera placa ciruela sin tocar el
+       texto del saldo, que arranca en 37,7 %. */
     left: calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.004);
     /* Anclado por abajo: lo que crezca hacia arriba es lo que sobresale del
-       marco, y nunca invade la ventana del tablero. */
-    bottom: calc(var(--frame-h) * 0.744);
+       marco, y nunca invade la ventana del tablero. El 75,2 % (en vez del 74,4 %
+       del borde de la ventana) es el aire que necesita el balanceo del logo para
+       que su esquina inferior izquierda no aterrice en la primera fila. */
+    bottom: calc(var(--frame-h) * 0.752);
     margin: 0;
     padding: 0;
     overflow: visible;
@@ -4762,9 +4770,11 @@ body.is-demo .machine__side .controls .balance::after {
 
   .machine__side .machine__hero::before { display: none; }
 
-  /* El logo manda sobre la nube: 30 % del ancho del marco (antes cabía entero
-     dentro de la nube y se veía diminuto) y su alto sale de la proporción del
-     PNG, 493 x 509. El sobrante superior es lo que lo saca del marco. */
+  /* El logo manda sobre la nube: 37,2 % del ancho del marco y el alto sale de
+     la proporción del PNG, 493 x 509. El sobrante superior es lo que lo saca
+     del marco; el balanceo de `pana-logo-sticker` (más inclinación y sombra de
+     contacto que la versión de escritorio) lo despega del toldo como una
+     pegatina en 3D. */
   .machine__side .machine__logo {
     width: 100%;
     height: auto;
@@ -4774,7 +4784,29 @@ body.is-demo .machine__side .controls .balance::after {
     object-fit: contain;
     object-position: center;
     transform-origin: 50% 70%;
-    animation: pana-logo-sheen 6.4s ease-in-out infinite;
+    animation: pana-logo-sticker 7.6s ease-in-out infinite;
+  }
+
+  /* Balanceo de la pegatina: se mece sobre su esquina inferior, crece un 3 % y
+     la sombra se abre al subir. El giro nunca pasa de 3° para que la esquina
+     inferior izquierda no baje hasta la primera fila del tablero. */
+  @keyframes pana-logo-sticker {
+    0%,
+    100% {
+      transform: translateY(-5px) rotate(-2.2deg) scale(1);
+      filter:
+        drop-shadow(0 4px 5px rgba(52, 0, 44, 0.42))
+        drop-shadow(0 14px 18px rgba(62, 3, 68, 0.36))
+        drop-shadow(0 0 16px rgba(255, 255, 255, 0.24));
+    }
+    50% {
+      transform: translateY(-10px) rotate(-3deg) scale(1.03);
+      filter:
+        brightness(1.04)
+        drop-shadow(0 6px 7px rgba(52, 0, 44, 0.46))
+        drop-shadow(0 20px 26px rgba(62, 3, 68, 0.42))
+        drop-shadow(0 0 26px rgba(255, 240, 170, 0.48));
+    }
   }
 
   /* Las chispas del DOM quedan fuera: el marco ya dibuja destellos y aquí solo
@@ -4834,6 +4866,14 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .hud__cell:nth-child(1) { left: 0; width: 29.1%; }
   .machine__side .hud__cell:nth-child(2) { left: 32.9%; width: 30.3%; }
   .machine__side .hud__cell:nth-child(3) { left: 66.6%; width: 33.4%; }
+
+  /* La primera placa del toldo pasa a mostrar el SALDO dinámico (sección 5), así
+     que el rótulo y el dato de la apuesta que trae el HUD se retiran de la placa:
+     la apuesta ya se lee —y se anuncia— en su propia placa del pie
+     (`.bet-readout`, que sigue visible), y así el árbol de accesibilidad dice lo
+     mismo que se ve: la placa 1 del toldo es el saldo, no la apuesta. Los nodos
+     siguen en el DOM; solo dejan de pintarse. */
+  .machine__side .hud__cell:nth-child(1) > * { visibility: hidden; }
 
   .machine__side .hud__label {
     flex: 0 0 auto;
@@ -4982,6 +5022,11 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .controls {
     grid-area: console;
     position: relative;
+    /* Sobre el arte del marco (`z-index: 1`): el saldo sube hasta su placa del
+       toldo y, al vivir dentro de la consola, sin esto lo tapaba el dibujo del
+       marco. La caja de la consola nunca se solapa con la del marco (las separa
+       el `row-gap`), asi que subir la capa no cambia nada mas. */
+    z-index: 2;
     display: block;
     /* El arte manda: mismo ancho que el marco y la relacion exacta del
        lienzo, de modo que el dibujo llena la caja y los seis pulsadores caen
@@ -5109,22 +5154,33 @@ body.is-demo .machine__side .controls .balance::after {
     overflow: hidden;
   }
 
-  /* Placa 1 del pie (x 5,33-17,11 % · y 80,95-93,94 % del recorte): el saldo
-     ocupa su hueco interior con 0,1 % de aire por cada lado. */
+  /* El saldo viaja a la primera placa ciruela del toldo (HUD): es la lectura que
+     tiene que estar siempre a la vista y su placa del pie pasa a ser el pulsador
+     MÁS (sección 6). La caja copia la de `.hud__cell:nth-child(1)`
+     (x 32,7-50,3 % · y 9,8-19,1 % del marco) subida por encima de la consola, que
+     es su bloque contenedor: el alto del marco (90,22 % hasta la franja del HUD)
+     más la separación de la rejilla. */
   .machine__side .controls .balance,
   body.is-demo .machine__side .controls .balance {
-    left: 5.45%;
-    top: 81.2%;
-    width: 11.55%;
-    height: 12.5%;
+    left: 32.7%;
+    top: calc(-1 * (var(--frame-h) * 0.9022 + var(--row-gap)));
+    width: 17.57%;
+    height: calc(var(--frame-h) * 0.0934);
+    gap: clamp(1px, calc(var(--m-w) * 0.003), 2px);
+    padding: 0 1%;
+    /* Sobre el arte del marco (`z-index: 1`) y por debajo de la pegatina del
+       logo (6), que se superpone al filo de esta placa sin tapar su texto. */
+    z-index: 5;
   }
 
   /* El filete dorado del escritorio no hace falta: la pantalla ya tiene marco. */
   .machine__side .controls .balance::after { display: none; }
 
+  /* El rótulo del HUD no cambia de tamaño: el saldo hereda el mismo cuerpo para
+     que la franja del toldo se lea como una sola línea de datos. */
   .machine__side .controls .balance__label {
     flex: 0 0 auto;
-    font-size: clamp(5px, calc(var(--m-w) * 0.015), 7.5px);
+    font-size: clamp(5px, calc(var(--m-w) * 0.0165), 7.5px);
     line-height: 1;
     letter-spacing: 0.06em;
     text-align: center;
@@ -5134,14 +5190,19 @@ body.is-demo .machine__side .controls .balance::after {
 
   /* El saldo hereda del escritorio `color: transparent` + degradado recortado a
      la tinta: a 9 px el navegador no pinta nada y la placa parecía vacía. Aquí
-     el dato se pinta plano y dorado, como el de la apuesta. */
+     el dato se pinta plano y dorado, como el de la apuesta, con un cuerpo un
+     pelo menor que los otros dos datos del HUD: a 10,6 px caben los doce
+     caracteres de un saldo de siete cifras («1.000.000,00») dentro del hueco
+     interior de la placa sin tocar el aro. */
   .machine__side .controls .balance__value {
     flex: 0 0 auto;
     min-width: 0;
     max-width: 100%;
     margin: 0;
-    font-size: clamp(7.5px, calc(var(--m-w) * 0.024), 12px);
-    line-height: 1;
+    font-size: clamp(8px, calc(var(--m-w) * 0.028), 12px);
+    /* 1,2 y no 1: la caja de linea tiene que contener el hombro y el descendente
+       de las cifras para que el recorte de la placa no roce el dato. */
+    line-height: 1.2;
     white-space: nowrap;
     letter-spacing: -0.01em;
     color: #fff6c9;
@@ -5185,15 +5246,19 @@ body.is-demo .machine__side .controls .balance::after {
     text-shadow: 0 1px 0 rgba(80, 30, 0, 0.65), 0 0 8px rgba(255, 214, 90, 0.5);
   }
 
-  /* Placa 3 del pie (x 41,28-58,95 %): estado del motor, en tinta clara porque
-     la placa del arte nuevo es ciruela y no la banda dorada anterior. El texto
-     de error no cabe en una línea de 64 px: se deja envolver en dos. */
+  /* Placa 3 del pie (x 40,6-59,5 % · y 81,3-93,7 %): la mitad alta es el rótulo
+     GIRAR que pinta la sección 6 y la baja, el estado del motor, en tinta clara
+     porque la placa del arte nuevo es ciruela y no la banda dorada anterior.
+     Al compartir la placa con el rótulo el aviso dispone de un solo renglón, así
+     que el texto largo se recorta con puntos suspensivos en vez de envolver. */
   .machine__side .controls .statusbar {
     position: absolute;
-    left: 41.2%;
-    top: 81.2%;
-    width: 17.6%;
-    height: 12.5%;
+    /* Todo el hueco interior de la placa: asi el aviso dispone de 18,9 % de ancho
+       y el recorte con puntos suspensivos llega lo mas tarde posible. */
+    left: 40.6%;
+    top: 87%;
+    width: 18.9%;
+    height: 6.6%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -5202,9 +5267,9 @@ body.is-demo .machine__side .controls .balance::after {
     padding: 0;
     margin: 0;
     color: #ffe7a6;
-    font-size: clamp(4.8px, calc(var(--m-w) * 0.0165), 7.5px);
+    font-size: clamp(4.6px, calc(var(--m-w) * 0.0135), 6.6px);
     font-weight: 800;
-    line-height: 1.1;
+    line-height: 1;
     letter-spacing: 0;
     text-align: center;
     text-shadow: 0 1px 1px rgba(30, 0, 20, 0.8);
@@ -5219,11 +5284,12 @@ body.is-demo .machine__side .controls .balance::after {
     max-height: 100%;
     overflow: hidden;
     text-align: center;
-    /* Dos renglones en lugar de unos puntos suspensivos: la placa mide 17,6 %
-       del ancho y el aviso completo no entra en una sola linea. */
-    white-space: normal;
-    overflow-wrap: anywhere;
-    text-overflow: clip;
+    /* Un renglon centrado en la mitad baja de la placa. No se toca `display`:
+       el item ya se blockifica al ser hijo flexible (y asi el modificador
+       `--right` conserva su `display: none`). */
+    white-space: nowrap;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
   }
 }
 
@@ -5335,15 +5401,73 @@ body.is-demo .machine__side .controls .balance::after {
     pointer-events: none;
   }
 
-  /* --- Rotulos: el arte nuevo llega sin rotulos impresos --------------------
-     Las placas del pie vienen vacias en `consola_movil.webp`, asi que el unico
-     texto que no debe pintarse es el que no aporta nada sobre el dibujo:
-     `Tropical Fever` (el disco ya lo anuncia), `AUTO` (lo dice su icono de
-     refresco), `MAX` (lo pinta la pastilla decorativa de arriba) y `SPIN` (lo
-     dice la placa GIRAR del arte). Se recortan a 1x1 en una sola regla y siguen
-     siendo el nombre accesible del pulsador; `#spin-label` es ademas el estado
-     que el JS cambia a "GIRANDO…". El saldo, la apuesta y el estado del motor si
-     se pintan (secciones 5): su placa no tiene rotulo en el arte. */
+  /* --- Rotulos del pie: MÁS · AUTO · GIRAR ------------------------------- */
+  /* `consola_movil.webp` llega con las cuatro placas del pie vacias, asi que el
+     nombre de cada pulsador se pinta aqui sobre su placa, en el mismo dorado y
+     con la misma sombra que los datos de la apuesta y el saldo. Es decorativo
+     (`pointer-events: none`) y el nombre accesible sigue en el DOM, recortado a
+     1x1 unas lineas mas abajo. */
+  .machine__side .controls #btn-feature::after,
+  .machine__side .controls #btn-auto::after,
+  .machine__side .controls #btn-spin::after {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translate(-50%, -50%);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-align: center;
+    white-space: nowrap;
+    color: #ffd977;
+    text-shadow: 0 1px 1px rgba(30, 0, 20, 0.85), 0 0 6px rgba(255, 214, 90, 0.32);
+    -webkit-text-stroke: 0;
+    pointer-events: none;
+  }
+
+  /* Placa 1 (x 4,6-17,9 % · y 81,3-93,7 %): el centro de la placa cae 0,8 % a la
+     derecha del eje de su disco y 13,4 % de alto por debajo de su caja tactil. */
+  .machine__side .controls #btn-feature::after {
+    content: "MÁS";
+    left: calc(50% + var(--m-w) * 0.008);
+    top: calc(100% + var(--m-w) * 0.0521);
+    width: calc(var(--m-w) * 0.124);
+    height: calc(var(--m-w) * 0.0482);
+    font-size: clamp(6.5px, calc(var(--m-w) * 0.0249), 10.5px);
+  }
+
+  /* Placa 2 (x 21,0-35,9 %): misma fila y mismo centro que el disco AUTO, que
+     esta 2 % de ancho a la derecha del centro de su placa. */
+  .machine__side .controls #btn-auto::after {
+    content: "AUTO";
+    left: calc(50% + var(--m-w) * 0.02);
+    top: calc(100% + var(--m-w) * 0.0521);
+    width: calc(var(--m-w) * 0.144);
+    height: calc(var(--m-w) * 0.0482);
+    font-size: clamp(6.5px, calc(var(--m-w) * 0.0249), 10.5px);
+  }
+
+  /* Placa 3 (x 40,6-59,5 %), mitad alta: el estado del motor ocupa la baja. La
+     caja tactil del disco coronado baja hasta 79,8 %, asi que el rotulo queda a
+     solo 4,3 % del alto del recorte por debajo de ella. */
+  .machine__side .controls #btn-spin::after {
+    content: "GIRAR";
+    left: calc(50% + var(--m-w) * 0.0025);
+    top: calc(100% + var(--m-w) * 0.0166);
+    width: calc(var(--m-w) * 0.175);
+    height: calc(var(--m-w) * 0.0214);
+    font-size: clamp(6px, calc(var(--m-w) * 0.0201), 8.6px);
+  }
+
+  /* --- Nombres accesibles de los discos -----------------------------------
+     Los rotulos visibles ya los pinta el CSS sobre cada placa, y `MAX` lo pinta
+     su pastilla: el texto que trae el DOM (`Tropical Fever`, `AUTO`, `MAX` y el
+     `GIRAR` de `#spin-label`) se recorta a 1x1 en una sola regla para que no se
+     duplique sobre el dibujo. Sigue siendo el nombre accesible del pulsador, y
+     `#spin-label` es ademas el texto que el JS cambia a "GIRANDO…": el rotulo
+     de la placa no cambia porque es decorativo y el estado real se lee en el de
+     abajo (seccion 5), que es la parte de la placa que si se actualiza. */
   .machine__side .controls #btn-feature .btn__title,
   .machine__side .controls #btn-auto .btn__title,
   .machine__side .controls__bet #btn-bet-max .chip__label,

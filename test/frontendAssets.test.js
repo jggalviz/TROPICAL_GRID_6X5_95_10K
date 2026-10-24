@@ -374,10 +374,12 @@ test('las fuentes candy se sirven como WOFF2 propios y sin bloquear el render', 
 test('los rotulos del case no se repintan: el DOM solo guarda nombre accesible y estado', () => {
   const css = read(STYLE_PATH);
 
-  // Las cuatro placas de la fila inferior (MAS · AUTO · GIRAR · APUESTA) ya
-  // vienen impresas en `consola_movil.webp`. Ninguna regla puede volver a
-  // pintarlas: los textos equivalentes del DOM se recortan a 1x1 en una sola
-  // regla compartida, que ademas es la unica que toca a `#spin-label`.
+  // Las cuatro placas de la fila inferior (MAS · AUTO · GIRAR · APUESTA) vienen
+  // vacias en `consola_movil.webp`: los rotulos visibles los pone la hoja de
+  // estilo (los `::after` de la seccion 6 y `.bet-readout`). Lo que ninguna
+  // regla puede volver a pintar es el texto del DOM, que solo guarda el nombre
+  // accesible: se recorta a 1x1 en una sola regla compartida, que ademas es la
+  // unica que toca a `#spin-label`.
   const start = css.indexOf('.machine__side .controls #btn-feature .btn__title,');
   assert.ok(start > -1, 'Debe existir una regla unica para los rotulos impresos en el case');
 
