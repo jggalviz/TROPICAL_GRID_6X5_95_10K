@@ -4744,15 +4744,24 @@ body.is-demo .machine__side .controls .balance::after {
       calc(var(--m-w) * 0.372),
       calc(var(--frame-h) * 0.30 + max(0px, (100cqh - var(--m-w) * 1.1298) / 2))
     );
-    width: calc(var(--logo-h) * 0.9686);
+    /* Ancho de la caja del logo (misma proporción del PNG, 493 / 509). */
+    --logo-w: calc(var(--logo-h) * 0.9686);
+    width: var(--logo-w);
     height: var(--logo-h);
-    /* El logo arranca en el borde izquierdo del marco: el 0,4 % de tinta que
-       deja el PNG hace que el dibujo caiga justo dentro y la nube quede debajo.
-       A este tamaño la tinta llega a ~93,7 % del ancho del PNG en la banda del
-       HUD (y 59-84 % de su alto), o sea hasta ~28 % del ancho del marco: se
-       superpone al filo izquierdo de la primera placa ciruela sin tocar el
-       texto del saldo, que arranca en 37,7 %. */
-    left: calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.004);
+    /* Centrado sobre la nube: la placa rosa con filo dorado del marco ocupa
+       2,6-33,1 % de su ancho (medido sobre `marco_movil.webp`), así que su punto
+       medio cae en 17,8 %. El ancla es el CENTRO de la chapa y no su borde
+       izquierdo: cuando el alto del viewport encoge el logo (tablet vertical,
+       móvil apaisado) el ancho baja del 37 % y, anclado por la izquierda, la
+       marca se quedaba pegada al lateral con la nube vacía a la derecha. El
+       `max` conserva el 0,4 % actual como suelo, de modo que en los teléfonos
+       —donde el logo es más ancho que la nube— el desborde por la izquierda no
+       crece ni un píxel. El 0,4 % es el aire que deja la tinta del PNG (empieza
+       en 0,41 % de su caja) para que la chapa caiga justo dentro del marco. */
+    left: max(
+      calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.004),
+      calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.178 - var(--logo-w) / 2)
+    );
     /* Anclado por abajo: lo que crezca hacia arriba es lo que sobresale del
        marco, y nunca invade la ventana del tablero. El 75,2 % (en vez del 74,4 %
        del borde de la ventana) es el aire que necesita el balanceo del logo para
@@ -5015,15 +5024,17 @@ body.is-demo .machine__side .controls .balance::after {
    repartir (la consola mide ~4 px mas que su relacion). Asi el filo superior
    queda dentro incluso en el fotograma mas alto del balanceo.
 
-   Solo cambia el tope. El 37,2 % del primer termino y el ancla (izquierda y
-   `bottom`) siguen intactos, asi que la chapa conserva su sitio sobre la nube y
-   su desborde lateral. En horizontal de movil (844 x 390, 667 x 375) el tope es
-   pequeno porque apenas hay aire, pero el logo sigue entero y proporcional al
-   marco.
+   Solo cambia el tope de alto. El 37,2 % del primer termino, el centrado sobre
+   la nube y el ancla inferior (`bottom`) siguen intactos, asi que la chapa
+   conserva su punto medio sobre la placa y su desborde lateral. En horizontal
+   de movil (844 x 390, 667 x 375) el tope es pequeno porque apenas hay aire, y
+   ahora el logo se encoge sobre la nube en vez de arrimarse al borde.
 
-   El rango empieza en 576 px a proposito: de ahi para abajo el reparto anterior
-   ya deja aire de sobra en los anchos reales de telefono (320-430 px) y esos
-   tamanos no se tocan.
+   El tope de alto empieza en 576 px a proposito: de ahi para abajo el reparto
+   anterior ya deja aire de sobra en los anchos reales de telefono (320-430 px) y
+   esos tamanos no se tocan. El centrado sobre la nube, en cambio, es comun a
+   todo el layout movil: en 320-430 px no mueve nada porque el logo es mas ancho
+   que la placa y el `max` de `left` lo deja en el 0,4 % de siempre.
    -------------------------------------------------------------------------- */
 @media (min-width: 576px) and (max-width: 899px) {
   .machine__side .machine__hero {
