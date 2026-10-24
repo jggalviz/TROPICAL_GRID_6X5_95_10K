@@ -4994,6 +4994,52 @@ body.is-demo .machine__side .controls .balance::after {
     object-position: center;
   }
 }
+/* --------------------------------------------------------------------------
+   Anchos intermedios (576-899 px) · la chapa del logo cabe entera
+   --------------------------------------------------------------------------
+   `--logo-h` (bloque anterior) mezcla la marca al 37,2 % del ancho del marco con
+   un tope por alto. Ese tope repartia el sobrante vertical de la maquina a
+   medias, pero no descontaba lo que el logo ocupa POR ENCIMA de su ancla: sobre
+   `bottom: 75,2 %` del marco solo quedan 24,8 % de su alto. En ventanas de 576 a
+   899 px que no sobran de alto (tablet vertical, 768 x 1024 · 600 x 900) la nube
+   se apoya en el borde superior de la maquina, asi que ese 30 % de marco daba
+   ~26 px de mas: el logo se salia por arriba del escenario y `overflow: hidden`
+   lo cortaba contra la barra superior.
+
+   Aqui el tope se mide con la geometria real: aire disponible sobre el ancla =
+   24,8 % del alto del marco + la mitad del sobrante vertical de la maquina
+   (`100cqh` menos marco + `--row-gap` + consola). De ahi se descuentan 18 px y
+   se divide por 1,046: `pana-logo-sticker` sube 10 px y, al girar -3° sobre el
+   origen 50 % 70 %, la esquina alta del PNG trepa 4,6 % de su alto; los 8 px
+   restantes absorben el aire que el sobrante real de la rejilla no llega a
+   repartir (la consola mide ~4 px mas que su relacion). Asi el filo superior
+   queda dentro incluso en el fotograma mas alto del balanceo.
+
+   Solo cambia el tope. El 37,2 % del primer termino y el ancla (izquierda y
+   `bottom`) siguen intactos, asi que la chapa conserva su sitio sobre la nube y
+   su desborde lateral. En horizontal de movil (844 x 390, 667 x 375) el tope es
+   pequeno porque apenas hay aire, pero el logo sigue entero y proporcional al
+   marco.
+
+   El rango empieza en 576 px a proposito: de ahi para abajo el reparto anterior
+   ya deja aire de sobra en los anchos reales de telefono (320-430 px) y esos
+   tamanos no se tocan.
+   -------------------------------------------------------------------------- */
+@media (min-width: 576px) and (max-width: 899px) {
+  .machine__side .machine__hero {
+    --logo-h: min(
+      calc(var(--m-w) * 0.372),
+      max(
+        0px,
+        (
+          var(--frame-h) * 0.248
+          + max(0px, (100cqh - var(--m-w) * 1.1298 - var(--row-gap)) / 2)
+          - 18px
+        ) / 1.046
+      )
+    );
+  }
+}
 
 /* --------------------------------------------------------------------------
    4) La consola · carcasa grafica + controles superpuestos
