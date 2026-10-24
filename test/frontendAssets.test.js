@@ -208,8 +208,13 @@ test('el escalado del tablero y las casillas se adapta al alto disponible', () =
   );
   assert.match(
     css,
-    /@media \(max-height: 660px\)\s*\{\s*\.machine__hero\s*\{\s*display:\s*none;\s*\}/,
-    'En alturas cortas el logo desaparece para ceder alto al tablero'
+    /@media \(min-width: 900px\) and \(max-height: 660px\)\s*\{\s*\.machine__hero\s*\{\s*display:\s*none;\s*\}/,
+    'En escritorio bajo el logo desaparece para ceder alto al tablero'
+  );
+  assert.match(
+    css,
+    /\.machine__side \.machine__hero\s*\{[^}]*position:\s*absolute;[^}]*\}/,
+    'En movil el logo se superpone al marco y no compite por el alto'
   );
   assert.match(
     css,
@@ -452,17 +457,21 @@ test('la consola y el tablero comparten el mismo eje X en movil', () => {
     'Sin padding propio: el aire lateral lo pone `.app` y es simetrico'
   );
   // El ancho sale del alto libre menos la separacion, repartido entre la
-  // relacion del marco (1 / 1,4081) y la de la consola (1 / 2,5729).
+  // relacion del marco (1 / 1,3490, ya estirada un 4,4 % en vertical para que
+  // la ventana del tablero gane aire) y la de la consola (1 / 2,5729).
+  // `cqw`/`cqh` en lugar de `%`: dentro de una custom property un `%` se
+  // resuelve contra la propiedad que la usa, y el mismo token medía el ancho en
+  // `width` y el alto en `height` (el HUD caía 12 px bajo sus placas).
   assert.match(
     machineGrid[0],
-    /--m-w:\s*min\(100%,\s*calc\(\(100cqh - clamp\(4px, 1\.2dvh, 10px\)\) \/ 1\.0989\)\);/,
+    /--m-w:\s*min\(100cqw,\s*calc\(\(100cqh - clamp\(4px, 1\.2dvh, 10px\)\) \/ 1\.1298\)\);/,
     'El ancho de la maquina descuenta marco + separacion + consola del alto libre'
   );
 
   // 2) Las dos piezas se miden con esa unidad y con la relacion exacta de su
   //    lienzo (`contain` sobre una caja con esa relacion llena el 100%).
-  const frameRule = css.match(/\.machine__table\s*\{[^}]*aspect-ratio:\s*1325 \/ 941;[^}]*\}/);
-  assert.ok(frameRule, 'El marco debe declarar su relacion 1325/941');
+  const frameRule = css.match(/\.machine__table\s*\{[^}]*aspect-ratio:\s*1325 \/ 982;[^}]*\}/);
+  assert.ok(frameRule, 'El marco debe declarar su relacion 1325/982 (4,4 % mas alto que el recorte)');
   assert.match(frameRule[0], /width:\s*var\(--m-w\);/, 'El marco se mide con `--m-w`');
 
   const caseRule = css.match(
@@ -483,11 +492,11 @@ test('la consola y el tablero comparten el mismo eje X en movil', () => {
   );
 
   // 3) El tablero tapa la ventana transparente del marco con % del recorte
-  //    (medido: x 8,4-94,1 %, y 26,1-98,1 %), con un pelo de aire por fuera
+  //    (medido: x 8,4-94,1 %, y 26,1-97,9 %), con un pelo de aire por fuera
   //    para que su filo se meta bajo el borde rosa y no asome el fondo.
   assert.match(
     css,
-    /\.machine__table \.board\s*\{[^}]*position:\s*absolute;[^}]*left:\s*8\.35%;[^}]*top:\s*26%;[^}]*width:\s*85\.9%;[^}]*height:\s*72\.3%;[^}]*\}/,
+    /\.machine__table \.board\s*\{[^}]*position:\s*absolute;[^}]*left:\s*8\.35%;[^}]*top:\s*26%;[^}]*width:\s*85\.9%;[^}]*height:\s*72\.2%;[^}]*\}/,
     'El tablero se coloca en la ventana del marco, no en el flujo de la fila'
   );
 });

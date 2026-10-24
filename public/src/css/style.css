@@ -2571,8 +2571,10 @@ body {
   .statusbar { font-size: 8px; }
 }
 
-/* Moviles en horizontal y ventanas muy bajas: sin logo para ganar alto. */
-@media (min-width: 640px) and (max-height: 560px) {
+/* Moviles en horizontal y ventanas muy bajas: sin logo para ganar alto. En la
+   vista movil el logo ya no ocupa alto (es una capa absoluta), asi que la regla
+   se limita a la maquina de escritorio. */
+@media (min-width: 900px) and (max-height: 560px) {
   .machine__hero { display: none; }
 
   .machine {
@@ -2601,9 +2603,11 @@ body {
 /* --------------------------------------------------------------------------
    Alturas cortas (cualquier ancho): el logo desaparece y el HUD/los controles
    se comprimen para que el tablero conserve alto util sin recortes.
+   En movil el logo es una capa absoluta que no ocupa alto: se queda, y el
+   tamano lo resuelve `--logo-h` con el aire real de la fila.
    -------------------------------------------------------------------------- */
 
-@media (max-height: 660px) {
+@media (min-width: 900px) and (max-height: 660px) {
   .machine__hero { display: none; }
 
   .hud__cell { padding: 3px 8px; }
@@ -3695,8 +3699,9 @@ body.is-demo .machine__side .controls__wallet {
   }
 }
 
-/* Pantallas bajas: el logo cede su alto al tablero. */
-@media (max-height: 660px) {
+/* Pantallas bajas: en escritorio el logo cede su alto al tablero. La maquina
+   movil lo superpone al marco (capa absoluta) y no compite por el alto. */
+@media (min-width: 900px) and (max-height: 660px) {
   .machine__hero { display: none; }
 }
 
@@ -4638,6 +4643,11 @@ body.is-demo .machine__side .controls .balance::after {
    zona con porcentajes medidos sobre el recorte. La consola es la segunda fila
    y comparte eje X con el marco.
 
+   La caja del marco se declara un 4,4 % más alta que el recorte (1325 / 982):
+   el dibujo se estira en vertical y la ventana del tablero gana aire sin que
+   ninguno de sus bordes se mueva. Los % medidos sobre el recorte (ventana
+   26,14-97,87 %, placas del toldo 9,78-19,13 %) siguen valiendo tal cual.
+
    Todo se resuelve con CSS sobre el DOM existente: no se añade, quita ni
    renombra un solo nodo, id o handler. Los contenedores del Bloque 3
    (`.controls__wallet`, `.controls__bet`, `.controls__actions`) pasan a
@@ -4664,6 +4674,9 @@ body.is-demo .machine__side .controls .balance::after {
   .stage { container-type: size; }
 
   .machine {
+    /* Ancla de las capas absolutas: el logo y el HUD se colocan respecto a la
+       celda `frame` (su área de rejilla), no respecto al escenario. */
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto;
@@ -4678,12 +4691,22 @@ body.is-demo .machine__side .controls .balance::after {
     /* El aire lateral ya lo pone `.app`: aqui no se resta ancho al tablero. */
     padding: 0;
     /* Ancho de la máquina: el menor entre el que cabe a lo ancho y el que deja
-       el alto libre, repartido entre marco (1 / 1,4081), consola (1 / 2,5729) y
+       el alto libre, repartido entre marco (1 / 1,3490), consola (1 / 2,5729) y
        la separación entre ambos. `--m-w` es además la unidad de medida de todo
        lo que se superpone al arte (`calc(var(--m-w) * k)`), de modo que cada
-       capa escala con el dibujo y no con la altura de su celda. */
-    --m-w: 100%;
-    --m-w: min(100%, calc((100cqh - clamp(4px, 1.2dvh, 10px)) / 1.0989));
+       capa escala con el dibujo y no con la altura de su celda.
+
+       Se mide en `cqw`/`cqh` y no en `%`: un `%` dentro de una custom property
+       se resuelve contra la propiedad que la consume, así que el mismo token
+       valía el ancho en `width` y el alto en `height` (de ahí que el HUD
+       quedara 12 px por debajo de sus placas). Con unidades de contenedor
+       `--m-w` es una longitud y mide lo mismo en cualquier propiedad. */
+    --m-w: 100cqw;
+    --m-w: min(100cqw, calc((100cqh - clamp(4px, 1.2dvh, 10px)) / 1.1298));
+    /* Alto del marco (aspect-ratio 1325 / 982). El arte se estira un 4,4 % en
+       vertical para que la ventana del tablero gane aire sin tocar sus bordes:
+       los porcentajes medidos sobre el recorte siguen valiendo. */
+    --frame-h: calc(var(--m-w) * 0.7412);
     /* Chrome del tablero (padding 4+4 + filo 2+2): lo consulta la regla base
        de escritorio al calcular el ancho con `cqh`. */
     --board-overhead: 12px;
@@ -4697,27 +4720,37 @@ body.is-demo .machine__side .controls .balance::after {
      2) Marca y HUD sobre el arte
      La nube rosa del marco sostiene el logo y las tres placas moradas del toldo
      sostienen las tres lecturas del HUD. Ambas capas se superponen a la celda
-     `frame` y se ciñen a su zona con % del recorte de 1325 x 941 convertidos a
+     `frame` y se ciñen a su zona con % del recorte de 1325 x 982 convertidos a
      `calc(var(--m-w) * k)`: así no dependen de la altura de la celda ni de que
      la fila conserve la relación del dibujo.
      ------------------------------------------------------------------------ */
   .machine__side .machine__hero {
     grid-area: frame;
-    position: relative;
-    /* Sobre la nube, por encima del dibujo del marco. */
-    z-index: 3;
-    width: calc(var(--m-w) * 0.30);
-    height: calc(var(--m-w) * 0.153);
-    /* La nube arranca en el 1,2 % del ancho del marco: a ese margen se le suma
-       la mitad del aire que deja el marco centrado en la columna. */
-    justify-self: start;
-    align-self: start;
-    margin-left: calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.012);
-    /* El logo entra con `contain`, asi que se centra en esta caja: 1,85 % de
-       margen deja el centro del logo en el 9,5 % del alto del marco, que es el
-       centro de la nube (x 2,6-30,4 % · y 0,6-18,2 % contando el aro dorado). */
-    margin-top: calc(var(--m-w) * 0.0185);
-    min-height: 0;
+    /* Fuera del flujo: la caja del logo es más alta que la nube y, si ocupara su
+       área de rejilla, estiraría la fila del marco. */
+    position: absolute;
+    /* Pegatina: por encima del dibujo del marco y de las chispas del toldo. */
+    z-index: 6;
+    /* Alto del logo: el que cabe entre el borde de la ventana (25,6 % del alto
+       del marco) y el aire que deja la fila, con el tamaño de diseño como tope.
+       Así el dibujo sobresale del marco cuando hay sitio y, cuando el alto del
+       viewport manda (tablet vertical, móvil apaisado), se encoge en vez de
+       caer sobre la primera fila del tablero o quedar recortado por `.machine`.
+       0,9686 = 493 / 509, la proporción del PNG. */
+    --logo-h: min(
+      calc(var(--m-w) * 0.31),
+      calc(var(--frame-h) * 0.245 + max(0px, (100cqh - var(--m-w) * 1.1298) / 2))
+    );
+    width: calc(var(--logo-h) * 0.9686);
+    height: var(--logo-h);
+    /* El logo arranca en el borde izquierdo del marco: el 0,4 % de tinta que
+       deja el PNG hace que el dibujo caiga justo dentro y la nube quede debajo.
+       30 % del ancho llena la nube y muere justo antes de la primera placa. */
+    left: calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.004);
+    /* Anclado por abajo: lo que crezca hacia arriba es lo que sobresale del
+       marco, y nunca invade la ventana del tablero. */
+    bottom: calc(var(--frame-h) * 0.744);
+    margin: 0;
     padding: 0;
     overflow: visible;
     background: none;
@@ -4729,18 +4762,18 @@ body.is-demo .machine__side .controls .balance::after {
 
   .machine__side .machine__hero::before { display: none; }
 
-  /* El logo conserva su animación, pero ahora vive dentro de la nube: el alto
-     útil es el de la nube (15,3 % del ancho del marco), no el 112 % de la vista
-     de dos columnas. */
+  /* El logo manda sobre la nube: 30 % del ancho del marco (antes cabía entero
+     dentro de la nube y se veía diminuto) y su alto sale de la proporción del
+     PNG, 493 x 509. El sobrante superior es lo que lo saca del marco. */
   .machine__side .machine__logo {
     width: 100%;
-    height: 100%;
+    height: auto;
     max-width: none;
     max-height: none;
     margin: 0;
     object-fit: contain;
     object-position: center;
-    transform-origin: 50% 60%;
+    transform-origin: 50% 70%;
     animation: pana-logo-sheen 6.4s ease-in-out infinite;
   }
 
@@ -4756,15 +4789,17 @@ body.is-demo .machine__side .controls .balance::after {
     position: relative;
     z-index: 3;
     display: block;
-    /* Franja exacta de las tres placas ciruela del toldo: x 32,7-93,1 % ·
-       y 10,3-18,9 % del recorte (medido sobre `marco_movil.webp`). El logo
-       ocupa la nube de la izquierda, asi que la franja arranca donde termina. */
+    /* Franja exacta de las tres placas ciruela del toldo: x 32,7-93,1 % · y
+       9,78-19,13 % del recorte (medido sobre `marco_movil.webp`). El logo ocupa
+       la nube de la izquierda, así que la franja arranca donde termina.
+       El alto y el margen se miden con `--frame-h` porque son % del ALTO del
+       marco: usando `--m-w` la franja caía 12 px por debajo de su placa. */
     width: calc(var(--m-w) * 0.604);
-    height: calc(var(--m-w) * 0.0855);
+    height: calc(var(--frame-h) * 0.0935);
     justify-self: start;
     align-self: start;
     margin-left: calc((100% - var(--m-w)) / 2 + var(--m-w) * 0.327);
-    margin-top: calc(var(--m-w) * 0.1035);
+    margin-top: calc(var(--frame-h) * 0.0978);
     min-height: 0;
     padding: 0;
     border: 0;
@@ -4778,11 +4813,16 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .hud__cell {
     position: absolute;
     top: 0;
-    height: 100%;
+    /* El rótulo y el dato se centran como un solo bloque dentro de la placa:
+       las dos líneas suman ~2/3 del alto interior, así que el aire sobrante se
+       reparte arriba y abajo a partes iguales. */
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0;
-    padding: 0 4%;
+    gap: clamp(1px, calc(var(--m-w) * 0.003), 2px);
+    height: 100%;
+    padding: 0 3%;
     border: 0;
     border-radius: 0;
     background: none;
@@ -4796,17 +4836,23 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .hud__cell:nth-child(3) { left: 66.6%; width: 33.4%; }
 
   .machine__side .hud__label {
-    font-size: clamp(4.5px, 1.45vw, 6.5px);
+    flex: 0 0 auto;
+    /* Tipografia atada a `--m-w` y no a `vw`: en horizontal el viewport es ancho
+       pero la maquina es pequena, y con `vw` el rotulo crecia mas que su placa. */
+    font-size: clamp(5px, calc(var(--m-w) * 0.0165), 7.5px);
     line-height: 1;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     color: #ffd977;
     text-shadow: 0 1px 1px rgba(30, 0, 20, 0.85);
   }
 
+  /* Los dos renglones tienen que caber en 9,35 % del alto del marco (~26 px a
+     390 px de ancho): 7 px de rótulo + 14 px de dato dejan 4 px de aire. */
   .machine__side .hud__value,
   .machine__side .hud__cell--win .hud__value {
+    flex: 0 0 auto;
     margin: 0;
-    font-size: clamp(9px, 2.9vw, 13px);
+    font-size: clamp(9px, calc(var(--m-w) * 0.036), 15px);
     line-height: 1;
     white-space: nowrap;
   }
@@ -4827,7 +4873,10 @@ body.is-demo .machine__side .controls .balance::after {
     z-index: 1;
     display: block;
     width: var(--m-w);
-    aspect-ratio: 1325 / 941;
+    /* Un 4,4 % más alto que el recorte (1325 x 982 en vez de 1325 x 941): el
+       dibujo se estira en vertical y la ventana del tablero gana ese mismo aire
+       sin mover sus bordes ni un punto. La consola no cambia. */
+    aspect-ratio: 1325 / 982;
     justify-self: center;
     align-self: start;
     min-height: 0;
@@ -4844,11 +4893,14 @@ body.is-demo .machine__side .controls .balance::after {
     left: 8.35%;
     top: 26%;
     width: 85.9%;
-    height: 72.3%;
+    height: 72.2%;
     margin: 0;
-    padding: clamp(3px, 0.9vw, 6px);
+    /* El aire del tablero se recorta al mínimo: cada píxel que se lleva el
+       padding es alto que pierden las cinco filas. Medidas atadas a `--m-w`
+       para que el aire acompañe al arte en cualquier orientación. */
+    padding: clamp(2px, calc(var(--m-w) * 0.006), 4px);
     border: 0;
-    border-radius: clamp(14px, 3.6vw, 22px);
+    border-radius: clamp(10px, calc(var(--m-w) * 0.036), 22px);
     max-width: none;
     max-height: none;
     box-shadow:
@@ -4874,14 +4926,32 @@ body.is-demo .machine__side .controls .balance::after {
     aspect-ratio: auto;
     max-width: none;
     max-height: none;
-    gap: clamp(2px, 0.6vw, 4px);
+    gap: clamp(2px, calc(var(--m-w) * 0.0055), 3.5px);
   }
 
   .machine__table .tile {
     aspect-ratio: auto;
     height: 100%;
     border-width: 1px;
-    border-radius: clamp(5px, 1.7vw, 9px);
+    border-radius: clamp(5px, calc(var(--m-w) * 0.017), 9px);
+  }
+
+  /* El símbolo se dibuja dentro del 88 % central de su celda: `width`/`height`
+     en % sí se resuelven contra la caja ya definida del `tile` (el 85 % de
+     `height` caía en una fila de rejilla de alto automático y la imagen crecía
+     hasta el 107 %, cortándose por arriba y por abajo). `contain` mantiene la
+     proporción del caramelo aunque la celda sea más ancha que alta. */
+  .machine__table .tile__img {
+    position: absolute;
+    left: 6%;
+    top: 6%;
+    width: 88%;
+    height: 88%;
+    max-width: none;
+    max-height: none;
+    padding: 0;
+    object-fit: contain;
+    object-position: center;
   }
 }
 
@@ -5016,18 +5086,22 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .controls .bet-readout,
   .machine__side .controls__bet .bet-readout {
     position: absolute;
-    display: grid;
-    align-content: center;
-    justify-items: center;
-    gap: 0;
+    /* Columna centrada: rótulo arriba, dato abajo, el bloque en el medio de la
+       placa. Antes era una rejilla con `grid-area: label/value` sin áreas
+       declaradas y cada texto caía en una columna implícita distinta. */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.5px, calc(var(--m-w) * 0.0012), 1px);
     width: auto;
     min-width: 0;
     height: auto;
     margin: 0;
-    /* Un `%` de padding se resuelve contra el ancho de la consola, no contra la
-       placa: con la placa midiendo ~45 px, `3px` es el aire justo para que el
-       dato no toque el aro dorado. */
-    padding: 0 3px;
+    /* `%` de padding se resuelve contra el ancho de la consola: 0,6 % es el aire
+       justo para que el dato no toque el aro dorado de la placa y quepan las
+       ocho cifras de un saldo de cinco digitos. */
+    padding: 0 0.6%;
     border: 0;
     border-radius: 0;
     background: none;
@@ -5035,44 +5109,47 @@ body.is-demo .machine__side .controls .balance::after {
     overflow: hidden;
   }
 
-  /* Placa 1 del pie (x 4,6-17,9 %, y 81,3-93,7 %): el saldo ocupa su hueco
-     interior con 0,4 % de aire por cada lado. */
+  /* Placa 1 del pie (x 5,33-17,11 % · y 80,95-93,94 % del recorte): el saldo
+     ocupa su hueco interior con 0,1 % de aire por cada lado. */
   .machine__side .controls .balance,
   body.is-demo .machine__side .controls .balance {
-    left: 5%;
-    top: 81.6%;
-    width: 12.5%;
-    height: 12%;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto;
-    align-items: center;
-    justify-content: center;
-    justify-items: center;
-    column-gap: 0;
-    row-gap: 0;
+    left: 5.45%;
+    top: 81.2%;
+    width: 11.55%;
+    height: 12.5%;
   }
 
   /* El filete dorado del escritorio no hace falta: la pantalla ya tiene marco. */
   .machine__side .controls .balance::after { display: none; }
 
   .machine__side .controls .balance__label {
-    grid-area: label;
-    font-size: clamp(4.5px, 1.3vw, 7px);
-    line-height: 1.05;
-    letter-spacing: 0.1em;
+    flex: 0 0 auto;
+    font-size: clamp(5px, calc(var(--m-w) * 0.015), 7.5px);
+    line-height: 1;
+    letter-spacing: 0.06em;
     text-align: center;
     color: #ffd977;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.65);
   }
 
+  /* El saldo hereda del escritorio `color: transparent` + degradado recortado a
+     la tinta: a 9 px el navegador no pinta nada y la placa parecía vacía. Aquí
+     el dato se pinta plano y dorado, como el de la apuesta. */
   .machine__side .controls .balance__value {
-    grid-area: value;
+    flex: 0 0 auto;
     min-width: 0;
     max-width: 100%;
     margin: 0;
-    font-size: clamp(8px, 2.3vw, 12.5px);
+    font-size: clamp(7.5px, calc(var(--m-w) * 0.024), 12px);
     line-height: 1;
     white-space: nowrap;
+    letter-spacing: -0.01em;
+    color: #fff6c9;
+    -webkit-text-fill-color: #fff6c9;
+    background-image: none;
+    -webkit-text-stroke: 0;
+    filter: none;
+    text-shadow: 0 1px 0 rgba(80, 30, 0, 0.65), 0 0 8px rgba(255, 214, 90, 0.45);
   }
 
   /* La divisa no cabe junto al saldo en una placa de ~45 px: el dato manda y
@@ -5081,42 +5158,42 @@ body.is-demo .machine__side .controls .balance::after {
     display: none;
   }
 
-  /* Placa 4 del pie (x 69,4-95,2 %): la apuesta se queda en la mitad izquierda
+  /* Placa 4 del pie (x 70,27-94,39 %): la apuesta se queda en la mitad izquierda
      y el extremo derecho es el pulsador MAX (seccion 6). */
   .machine__side .controls .bet-readout,
   .machine__side .controls__bet .bet-readout {
     left: 70.4%;
-    top: 81.6%;
-    width: 13.6%;
-    height: 12%;
-    grid-template-rows: auto auto;
-    align-items: center;
-    row-gap: 0;
+    top: 81.2%;
+    width: 13.5%;
+    height: 12.5%;
   }
 
   .machine__side .controls .bet-readout__label {
-    font-size: clamp(4.5px, 1.3vw, 7px);
-    line-height: 1.05;
-    letter-spacing: 0.08em;
+    flex: 0 0 auto;
+    font-size: clamp(5px, calc(var(--m-w) * 0.015), 7.5px);
+    line-height: 1;
+    letter-spacing: 0.06em;
     color: #ffd977;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.65);
   }
 
   .machine__side .controls .bet-readout__value {
-    font-size: clamp(8px, 2.3vw, 12.5px);
+    flex: 0 0 auto;
+    font-size: clamp(7.5px, calc(var(--m-w) * 0.0255), 12.5px);
     line-height: 1;
     color: #fff6c9;
     text-shadow: 0 1px 0 rgba(80, 30, 0, 0.65), 0 0 8px rgba(255, 214, 90, 0.5);
   }
 
-  /* Placa 3 del pie (x 40,6-59,5 %): estado del motor, en tinta clara porque la
-     placa del arte nuevo es ciruela y no la banda dorada de la version previa. */
+  /* Placa 3 del pie (x 41,28-58,95 %): estado del motor, en tinta clara porque
+     la placa del arte nuevo es ciruela y no la banda dorada anterior. El texto
+     de error no cabe en una línea de 64 px: se deja envolver en dos. */
   .machine__side .controls .statusbar {
     position: absolute;
-    left: 40.9%;
-    top: 81.6%;
-    width: 18.3%;
-    height: 12%;
+    left: 41.2%;
+    top: 81.2%;
+    width: 17.6%;
+    height: 12.5%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -5125,10 +5202,10 @@ body.is-demo .machine__side .controls .balance::after {
     padding: 0;
     margin: 0;
     color: #ffe7a6;
-    font-size: clamp(6px, 1.7vw, 9px);
+    font-size: clamp(4.8px, calc(var(--m-w) * 0.0165), 7.5px);
     font-weight: 800;
-    line-height: 1;
-    letter-spacing: 0.02em;
+    line-height: 1.1;
+    letter-spacing: 0;
     text-align: center;
     text-shadow: 0 1px 1px rgba(30, 0, 20, 0.8);
     overflow: hidden;
@@ -5139,10 +5216,14 @@ body.is-demo .machine__side .controls .balance::after {
   .machine__side .controls .statusbar > .statusbar__item {
     flex: 0 1 auto;
     min-width: 0;
+    max-height: 100%;
     overflow: hidden;
     text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    /* Dos renglones en lugar de unos puntos suspensivos: la placa mide 17,6 %
+       del ancho y el aviso completo no entra en una sola linea. */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
   }
 }
 
