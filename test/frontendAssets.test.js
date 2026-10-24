@@ -502,16 +502,24 @@ test('la consola y el tablero comparten el mismo eje X en movil', () => {
     'El tablero se coloca en la ventana del marco, no en el flujo de la fila'
   );
 });
-test('el marco y la consola se sirven con su lienzo exacto y los maestros quedan fuera de public/', () => {
+test('el arte de las dos maquinas se sirve con su lienzo exacto y los maestros quedan fuera de public/', () => {
   // Cada pieza se pinta con `background: url(...) center / contain` sobre una
   // caja con la relacion de su lienzo; si el WebP cambia de medidas, `contain`
   // lo centra con aire y los controles se salen del arte.
+  //
+  // Movil (`build-mobile-art.js`): marco y consola recortados al alfa.
+  // Escritorio (`build-desktop-art.js`): d1 (marco del tablero), d2 (modulo
+  // hero + placas) y d3 (consola), a q=90 y con el mismo contrato de lienzo.
   const pieces = [
-    { name: 'marco_movil', size: '1325x941', max: 460 * 1024 },
-    { name: 'consola_movil', size: '1783x693', max: 300 * 1024 }
+    { name: 'marco_movil', size: '1325x941', max: 460 * 1024, build: 'build-mobile-art.js' },
+    { name: 'consola_movil', size: '1783x693', max: 300 * 1024, build: 'build-mobile-art.js' },
+    { name: 'd1', size: '1017x819', max: 300 * 1024, build: 'build-desktop-art.js' },
+    { name: 'd2', size: '605x443', max: 260 * 1024, build: 'build-desktop-art.js' },
+    { name: 'd3', size: '599x468', max: 300 * 1024, build: 'build-desktop-art.js' }
   ];
+  const css = read(STYLE_PATH);
 
-  for (const { name, size, max } of pieces) {
+  for (const { name, size, max, build } of pieces) {
     const asset = path.join(PUBLIC_DIR, 'src', 'assets', `${name}.webp`);
     assert.ok(fs.existsSync(asset), `Falta public/src/assets/${name}.webp`);
     const binary = fs.readFileSync(asset);
@@ -533,7 +541,7 @@ test('el marco y la consola se sirven con su lienzo exacto y los maestros quedan
 
     // Los maestros llegan con margenes transparentes y pesan MB: se publica
     // todo `public/src/**`, asi que viven en `design/` y solo se sirve el
-    // recorte que produce `npm run build:art`.
+    // recorte que produce el script de cada maqueta.
     assert.ok(
       fs.existsSync(path.join(ROOT_DIR, 'design', `${name}.png`)),
       `El arte master debe estar en design/${name}.png`
@@ -544,18 +552,78 @@ test('el marco y la consola se sirven con su lienzo exacto y los maestros quedan
         `${stray} no debe servirse desde public/src`
       );
     }
-  }
 
-  // El script que recorta las dos piezas declara los mismos lienzos que el CSS.
-  const build = fs.readFileSync(path.join(ROOT_DIR, 'scripts', 'build-mobile-art.js'), 'utf8');
-  for (const { name, size } of pieces) {
+    // El script de la pieza declara el mismo lienzo que el CSS.
+    const script = fs.readFileSync(path.join(ROOT_DIR, 'scripts', build), 'utf8');
     const [w, h] = size.split('x');
     assert.match(
-      build,
-      new RegExp(`name: '${name}',\\s*canvas: \\{ width: ${w}, height: ${h} \\}`),
-      `build:art debe recortar ${name} a ${size}`
+      script,
+      new RegExp(`name: '${name}',[\\s\\S]{0,90}?canvas: \\{ width: ${w}, height: ${h} \\}`),
+      `${build} debe recortar ${name} a ${size}`
     );
   }
+
+  // El arte de escritorio se compila a q=90 y el comando queda registrado.
+  const desktop = fs.readFileSync(path.join(ROOT_DIR, 'scripts', 'build-desktop-art.js'), 'utf8');
+  for (const name of ['d1', 'd2', 'd3']) {
+    const block = desktop.slice(desktop.indexOf(`name: '${name}'`));
+    assert.match(block.slice(0, 200), /quality: 90,/, `${name} se compila a calidad 90`);
+  }
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8'));
+  assert.equal(pkg.scripts['build:desktop-art'], 'node scripts/build-desktop-art.js');
+
+  // El CSS de escritorio pinta las tres piezas a sangre y ancla los controles
+  // en % del lienzo (las mismas medidas que imprime el script). Se buscan todas
+  // las reglas del selector: las capas anteriores tambien declaran cajas para
+  // estos botones y solo una lleva la geometria del arte.
+  for (const name of ['d1', 'd2', 'd3']) {
+    assert.match(
+      css,
+      new RegExp(`url\\('\\.\\.\\/assets\\/${name}\\.webp'\\) no-repeat center \\/ 100% 100%`),
+      `El CSS debe pintar ${name}.webp sin aire (100% 100%)`
+    );
+  }
+  const bodies = (selector) => [...css.matchAll(new RegExp(`${selector} \\{([^}]*)\\}`, 'g'))]
+    .map((match) => match[1]);
+  const spinBodies = bodies('\\.machine__side \\.controls \\.btn--spin');
+  assert.ok(spinBodies.length, 'La capsula SPIN debe declarar su caja');
+  for (const declaration of ['left: 9.35%;', 'top: 39.32%;', 'width: 81.30%;', 'height: 26.71%;']) {
+    assert.ok(
+      spinBodies.some((body) => body.includes(declaration)),
+      `El SPIN se ancla al dibujo con \`${declaration}\``
+    );
+  }
+  const windowBodies = bodies('\\.machine__table \\.board');
+  assert.ok(windowBodies.length, 'El tablero debe declarar su caja sobre la ventana del marco');
+  for (const declaration of ['left: 5%;', 'top: 11.7%;', 'width: 89.3%;', 'height: 82.45%;']) {
+    assert.ok(
+      windowBodies.some((body) => body.includes(declaration)),
+      `La ventana de d1 se cubre con \`${declaration}\``
+    );
+  }
+  // El case de escritorio responde como un pulsador de arcade: se hunde un 5 %
+  // (y con el, su trozo de dibujo) y suelta un destello especular al pasar el
+  // cursor o al pulsar.
+  assert.match(
+    css,
+    /\.machine__side \.controls \.gbtn:active:not\(:disabled\) \{\s*transform: scale\(0\.95\);/,
+    'El pulsador de escritorio se hunde con `scale(0.95)`'
+  );
+  assert.match(
+    css,
+    /\.machine__side \.controls \.gbtn:hover:not\(:disabled\)::after,[\s\S]{0,140}?animation: pana-art-sheen/,
+    'El `::after` del pulsador barre un destello de luz al pasar el cursor'
+  );
+  assert.match(
+    css,
+    /@keyframes pana-art-sheen \{\s*from \{ background-position: 140% 0; \}\s*to \{ background-position: -60% 0; \}\s*\}/,
+    'El destello recorre la capsula de un borde al otro'
+  );
+  assert.match(
+    css,
+    /\.machine__side \.controls \.gbtn \{[^}]*transition:[\s\S]{0,120}?transform 0\.14s cubic-bezier/,
+    'La transicion del hundimiento es fluida (curva de muelle)'
+  );
 
   // La variante sin iconos del arte no es la que se publica.
   assert.ok(

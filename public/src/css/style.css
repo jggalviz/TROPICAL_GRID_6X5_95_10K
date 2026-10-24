@@ -6008,3 +6008,860 @@ body.is-demo .machine__side .controls .balance::after {
   }
 }
 
+
+
+/* ==========================================================================
+   ESCRITORIO (≥900 px) · RECONSTRUCCION CON EL ARTE MAESTRO
+   --------------------------------------------------------------------------
+   Tres piezas mandan sobre la maqueta. Cada una se publica recortada al bbox
+   de su alfa (`npm run build:desktop-art`) y el CSS la pinta con
+   `background: url(...) center / 100% 100%` sobre una caja con su relacion
+   exacta, de modo que los anclajes en % medidos sobre el dibujo siguen
+   valiendo a cualquier escala:
+
+     d1.webp · 1017 x 819  marco del tablero (ventana transparente x 5,0-94,3 %
+                           · y 11,7-94,2 %) → columna derecha
+     d2.webp ·  605 x 443  modulo hero: nube del logo + 3 placas ciruela
+                           (x 6,28-92,56 % · y 75,85-94,13 %) → cabecera de la
+                           columna izquierda
+     d3.webp ·  599 x 468  consola: − / lectura / + / MAX · SPIN · FEVER · AUTO
+                           → pie de la columna izquierda
+
+   El reparto del alto es una sola medida (`--frame-h`): el marco y la columna
+   lateral comparten alto y la lateral reparte su ancho entre d2 y d3 segun sus
+   relaciones. Asi el conjunto nunca desborda el viewport (sin scroll) y todas
+   las capas superpuestas escalan con el dibujo.
+   ========================================================================== */
+
+@media (min-width: 900px) {
+  /* El arte necesita algo mas de lienzo que la tarjeta antigua: con 1760 px el
+     marco y la consola crecen en pantallas de 1920 sin tocar el resto. */
+  .app { max-width: 1760px; }
+
+  .machine {
+    /* Aire superior: es el hueco por el que asoma la pegatina del logo. */
+    --d-bleed: clamp(8px, 2.2vh, 30px);
+    /* Separacion vertical dentro de la columna izquierda (hero | consola). */
+    --d-gap-y: clamp(6px, 1.2vh, 18px);
+    /* Separacion entre la columna lateral y el marco del tablero. */
+    --d-gap-x: clamp(10px, 1.3vw, 26px);
+    /* Alto que no es maquina: paddings de `.app`, barra superior y su gap. */
+    --d-chrome: calc(96px + 1.2dvh);
+    /* Ancho que se lleva `.app` (padding lateral simetrico + un pelo de aire). */
+    --d-avail-pad: clamp(16px, 3vw, 44px);
+
+    /* Alto del marco: el menor entre el que deja el viewport y el que deja el
+       ancho. 1,9025 = 1,24176 (relacion de d1) + 0,66071 (ancho de la columna
+       lateral por unidad de alto, ver mas abajo). */
+    --frame-h: min(
+      calc(100dvh - var(--d-chrome) - var(--d-bleed)),
+      calc((min(100vw, 1760px) - var(--d-avail-pad) - var(--d-gap-x)) / 1.9025)
+    );
+    --frame-w: calc(var(--frame-h) * 1.24176);
+    /* 1,51353 = 443/605 (alto de d2 por unidad de ancho) + 468/599 (d3). */
+    --side-w: calc((var(--frame-h) - var(--d-gap-y)) / 1.51353);
+    --hero-h: calc(var(--side-w) * 0.73223);
+    --cons-h: calc(var(--side-w) * 0.78130);
+
+    /* Sin caja propia: el arte de cada bloque ya trae su marco. */
+    display: grid;
+    grid-template-columns: var(--side-w) var(--frame-w);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "side table";
+    align-items: center;
+    justify-content: center;
+    align-content: center;
+    column-gap: var(--d-gap-x);
+    row-gap: 0;
+    height: 100%;
+    min-height: 0;
+    padding: var(--d-bleed) 0 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    overflow: hidden;
+  }
+
+  /* Columna izquierda: hero arriba, consola al pie. El alto lo fija el marco,
+     asi las dos columnas empiezan y acaban en la misma linea. */
+  .machine__side {
+    grid-area: side;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: var(--d-gap-y);
+    width: var(--side-w);
+    height: var(--frame-h);
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  /* ------------------------------------------------------------------------
+     Bloque 1 · Modulo hero (d2) · nube del logo + tres placas de lectura
+     ------------------------------------------------------------------------ */
+  .machine__side .machine__hero {
+    position: relative;
+    z-index: 3;
+    display: block;
+    flex: 0 0 var(--hero-h);
+    width: 100%;
+    height: var(--hero-h);
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: url('../assets/d2.webp') no-repeat center / 100% 100%;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  /* El halo de azucar y los destellos de la tarjeta antigua ya no hacen falta:
+     la nube del dibujo ilumina la zona. */
+  .machine__side .machine__hero::before { display: none; }
+  .machine__side .machine__spark { display: none; }
+
+  /* La pegatina del logo: mas grande que la nube y desbordando por arriba.
+     `translate` centra la caja sobre el punto del dibujo y `rotate` le da el
+     aire desenfadado; la animacion sigue moviendo `transform`, que se compone
+     con las propiedades individuales y no las pisa. */
+  .machine__side .machine__logo {
+    position: absolute;
+    left: 50%;
+    top: 35.4%;
+    z-index: 6;
+    width: 56%;
+    height: auto;
+    aspect-ratio: 493 / 509;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    translate: -50% -50%;
+    rotate: -2deg;
+    transform-origin: 50% 60%;
+    filter:
+      drop-shadow(0 16px 26px rgba(62, 3, 68, 0.42))
+      drop-shadow(0 0 26px rgba(255, 244, 170, 0.34));
+    animation: pana-logo-breathe 6.4s ease-in-out infinite;
+    will-change: transform, filter;
+    pointer-events: none;
+  }
+
+  /* ------------------------------------------------------------------------
+     Bloque 2 · Las tres placas ciruela del hero
+     Anclajes medidos sobre d2.webp (605 x 443) con segmentacion de color: las
+     placas van de x 6,28 % a 92,56 % con 3,22 % de separacion, y su banda mide
+     18,28 % de alto. Se reparte con `fr` en esas mismas proporciones para que
+     el ancho de cada placa sea el del dibujo, no un tercio exacto.
+     ------------------------------------------------------------------------ */
+  .machine__side .hud {
+    position: absolute;
+    /* `.hud` es hermano del hero (no hijo), asi que su bloque contenedor es la
+       columna: el anclaje vertical se mide con `--hero-h`, que es el alto real
+       del modulo, y el horizontal en % del ancho de la columna (el mismo que
+       el del dibujo). */
+    left: 6.28%;
+    top: calc(var(--hero-h) * 0.7585);
+    width: 86.28%;
+    height: calc(var(--hero-h) * 0.1828);
+    /* Sobre el dibujo del hero (`z-index: 3`), que es hermano suyo y por tanto
+       se pintaba encima de estas placas. */
+    z-index: 5;
+    display: grid;
+    grid-template-columns: 26.94fr 26.94fr 25.95fr;
+    grid-template-rows: 100%;
+    align-items: stretch;
+    column-gap: 3.22%;
+    row-gap: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  /* La placa la pinta el dibujo: la celda solo centra rótulo y dato. */
+  .machine__side .hud .hud__cell,
+  .machine__side .hud .hud__cell--win {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3em;
+    height: 100%;
+    min-width: 0;
+    padding: 0 4%;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .machine__side .hud .hud__label {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: clamp(6px, calc(var(--hero-h) * 0.030), 13px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: #ffd977;
+    -webkit-text-fill-color: #ffd977;
+    background: none;
+    -webkit-text-stroke: 0;
+    text-shadow: 0 1px 1px rgba(60, 0, 20, 0.75);
+  }
+
+  /* El dato se pinta plano: el degradado recortado a la tinta del tema antiguo
+     desaparecia a tamaños pequeños y la placa parecia vacia. */
+  .machine__side .hud .hud__value,
+  .machine__side .hud .hud__cell--win .hud__value,
+  .machine__side .hud .hud__value--mx {
+    flex: 0 0 auto;
+    margin: 0;
+    max-width: 100%;
+    font-size: clamp(9px, calc(var(--hero-h) * 0.058), 28px);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    color: #fff6c9;
+    -webkit-text-fill-color: #fff6c9;
+    background-image: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    -webkit-text-stroke: 0;
+    filter: none;
+    text-shadow: 0 2px 0 rgba(80, 30, 0, 0.55), 0 0 12px rgba(255, 214, 90, 0.32);
+  }
+
+  /* ------------------------------------------------------------------------
+     Bloque 3 · Consola de controles (d3)
+     El case dibuja los siete pulsadores vacios: el CSS solo coloca encima la
+     capa tactil de cada uno y sus lecturas. Anclajes medidos sobre d3.webp
+     (599 x 468) por color y componente conexa.
+     ------------------------------------------------------------------------ */
+  .machine__side .controls {
+    position: relative;
+    z-index: 4;
+    display: block;
+    flex: 0 0 var(--cons-h);
+    width: 100%;
+    height: var(--cons-h);
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: url('../assets/d3.webp') no-repeat center / 100% 100%;
+    box-shadow: none;
+    overflow: visible;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  /* Los tres contenedores del Bloque 3 no pintan caja: sus hijos se colocan
+     directamente contra la carcasa. */
+  .machine__side .controls__wallet,
+  .machine__side .controls__bet,
+  .machine__side .controls__actions { display: contents; }
+
+  /* --- Capa tactil sobre cada caramelo ------------------------------------
+     Cada pulsador pinta su propia copia recortada del lienzo de la consola
+     (`background-size` = 100/--art-w % y `background-position` derivado de
+     --art-x/--art-y). En reposo la copia coincide pixel a pixel con el dibujo
+     del padre, asi que no se nota; al hundirse (`scale`) se encoge el caramelo
+     dibujado y no solo un velo encima. */
+  .machine__side .controls .gbtn {
+    --art-x: 0;
+    --art-y: 0;
+    --art-w: 100;
+    --art-h: 100;
+    position: absolute;
+    display: flex;
+    /* Rotulo arriba y capsula del valor debajo: el case deja el caramelo vacio,
+       asi que la columna centrada es la composicion de FEVER y AUTO. */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45em;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background-color: transparent;
+    background-image: url('../assets/d3.webp');
+    background-repeat: no-repeat;
+    background-size: calc(100% * 100 / var(--art-w)) auto;
+    background-position:
+      calc(-1 * var(--art-x) / (var(--art-w) - 100) * 100%)
+      calc(-1 * var(--art-y) / (var(--art-h) - 100) * 100%);
+    box-shadow: none;
+    color: #fff6c9;
+    font-size: 1em;
+    overflow: visible;
+    transform-origin: 50% 50%;
+    transition:
+      transform 0.14s cubic-bezier(0.2, 0.85, 0.3, 1.25),
+      filter 0.14s ease,
+      box-shadow 0.14s ease;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Brillo especular (`::after`) y velo de contacto (`::before`) se recortan a
+     la silueta con el radio heredado del pulsador. */
+  .machine__side .controls .gbtn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    background: radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%);
+    opacity: 0;
+    mix-blend-mode: screen;
+    transition: opacity 0.14s ease;
+    pointer-events: none;
+  }
+
+  .machine__side .controls .gbtn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    background-image: linear-gradient(
+      104deg,
+      transparent 34%,
+      rgba(255, 255, 255, 0.62) 48%,
+      rgba(255, 255, 255, 0.95) 52%,
+      rgba(255, 255, 255, 0.62) 56%,
+      transparent 70%
+    );
+    background-repeat: no-repeat;
+    background-size: 260% 100%;
+    background-position: 140% 0;
+    opacity: 0;
+    mix-blend-mode: screen;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+  }
+
+  .machine__side .controls .gbtn:hover:not(:disabled)::before { opacity: 0.34; }
+
+  .machine__side .controls .gbtn:hover:not(:disabled)::after,
+  .machine__side .controls .gbtn:focus-visible::after {
+    opacity: 1;
+    animation: pana-art-sheen 1.1s cubic-bezier(0.3, 0.1, 0.4, 1) both;
+  }
+
+  /* Hundimiento real: el caramelo (su copia del lienzo) se encoge un 5 % y
+     pierde luz, como un pulsador de arcade que entra en su alojamiento. */
+  .machine__side .controls .gbtn:active:not(:disabled) {
+    transform: scale(0.95);
+    filter: brightness(0.94) saturate(1.02);
+    box-shadow: inset 0 4px 12px rgba(70, 0, 40, 0.35);
+  }
+
+  .machine__side .controls .gbtn:active:not(:disabled)::after {
+    opacity: 1;
+    animation: pana-art-sheen 0.5s ease-out both;
+  }
+
+  .machine__side .controls .gbtn:disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.45) brightness(0.9);
+  }
+
+  /* --- Geometria de los siete pulsadores ---------------------------------- */
+  /* Disco − · x 9,52-22,71 % · y 17,09-32,90 % */
+  .machine__side .controls__bet #btn-bet-down {
+    --art-x: 9.52;
+    --art-y: 17.09;
+    --art-w: 13.19;
+    --art-h: 15.81;
+    left: 9.52%;
+    top: 17.09%;
+    width: 13.19%;
+    height: 15.81%;
+    border-radius: 50%;
+  }
+
+  /* Disco + · x 64,94-77,46 % · y 16,88-32,91 % */
+  .machine__side .controls__bet #btn-bet-up {
+    --art-x: 64.94;
+    --art-y: 16.88;
+    --art-w: 12.52;
+    --art-h: 16.03;
+    left: 64.94%;
+    top: 16.88%;
+    width: 12.52%;
+    height: 16.03%;
+    border-radius: 50%;
+  }
+
+  /* Placa MAX · x 79,63-91,98 % · y 17,09-32,90 % */
+  .machine__side .controls__bet #btn-bet-max {
+    --art-x: 79.63;
+    --art-y: 17.09;
+    --art-w: 12.35;
+    --art-h: 15.81;
+    left: 79.63%;
+    top: 17.09%;
+    width: 12.35%;
+    height: 15.81%;
+    border-radius: 28%;
+  }
+
+  /* Capsula SPIN · x 9,35-90,65 % · y 39,32-66,03 % */
+  .machine__side .controls .btn--spin {
+    --art-x: 9.35;
+    --art-y: 39.32;
+    --art-w: 81.30;
+    --art-h: 26.71;
+    left: 9.35%;
+    top: 39.32%;
+    width: 81.30%;
+    height: 26.71%;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    gap: 0.55em;
+    padding: 0 4%;
+    border: 0;
+    border-radius: 999px;
+    background-color: transparent;
+    animation: none;
+  }
+
+  /* Repintado de los seis caramelos con su trozo del lienzo. Va por `id` porque
+     las reglas antiguas de color (`.chip:not(.chip--max)`, `[aria-pressed]`…)
+     suman mas clases y pintarian su degradado encima del dibujo. */
+  .machine__side .controls #btn-bet-down,
+  .machine__side .controls #btn-bet-up,
+  .machine__side .controls #btn-bet-max,
+  .machine__side .controls #btn-spin,
+  .machine__side .controls #btn-feature,
+  .machine__side .controls #btn-auto {
+    background-color: transparent;
+    background-image: url('../assets/d3.webp');
+    background-repeat: no-repeat;
+    background-size: calc(100% * 100 / var(--art-w)) auto;
+    background-position:
+      calc(-1 * var(--art-x) / (var(--art-w) - 100) * 100%)
+      calc(-1 * var(--art-y) / (var(--art-h) - 100) * 100%);
+    box-shadow: none;
+    animation: none;
+  }
+
+  /* TROPICAL FEVER · x 7,68-49,08 % · y 73,50-91,66 % */
+  .machine__side .controls #btn-feature {
+    --art-x: 7.68;
+    --art-y: 73.50;
+    --art-w: 41.40;
+    --art-h: 18.16;
+    left: 7.68%;
+    top: 73.50%;
+    width: 41.40%;
+    height: 18.16%;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    padding: 0 4%;
+  }
+
+  /* AUTO · x 51,59-92,16 % · y 72,22-91,88 % */
+  .machine__side .controls #btn-auto {
+    --art-x: 51.59;
+    --art-y: 72.22;
+    --art-w: 40.57;
+    --art-h: 19.66;
+    left: 51.59%;
+    top: 72.22%;
+    width: 40.57%;
+    height: 19.66%;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    padding: 0 4%;
+  }
+
+  @keyframes pana-art-sheen {
+    from { background-position: 140% 0; }
+    to { background-position: -60% 0; }
+  }
+
+  /* --- Lectura de saldo · banda superior del case -------------------------
+     d3 no trae placa libre para el saldo: la unica franja limpia del dibujo es
+     la de arriba (y 5,9-13,3 %, entre el filo de caramelo y la linea dorada,
+     por encima de los discos). Ahi se centra como el credito de una maquina de
+     arcade, en una sola linea y sin fondo propio. */
+  .machine__side .controls .balance,
+  body.is-demo .machine__side .controls .balance {
+    position: absolute;
+    left: 6%;
+    top: 5.9%;
+    z-index: 5;
+    width: 88%;
+    height: 7.4%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45em;
+    margin: 0;
+    padding: 0 2%;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  /* El filete dorado del escritorio antiguo sobra: el case ya tiene el suyo. */
+  .machine__side .controls .balance::after { display: none; }
+
+  .machine__side .controls .balance__label {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: clamp(8px, calc(var(--cons-h) * 0.032), 15px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #ffd977;
+    -webkit-text-fill-color: #ffd977;
+    background: none;
+    text-shadow: 0 1px 1px rgba(60, 0, 20, 0.8);
+  }
+
+  .machine__side .controls .balance__value {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 70%;
+    margin: 0;
+    font-size: clamp(11px, calc(var(--cons-h) * 0.052), 24px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: #fff6c9;
+    -webkit-text-fill-color: #fff6c9;
+    background-image: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    -webkit-text-stroke: 0;
+    filter: none;
+    text-shadow: 0 1px 0 rgba(80, 30, 0, 0.6), 0 0 10px rgba(255, 214, 90, 0.45);
+  }
+
+  .machine__side .controls .balance__currency {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: clamp(7px, calc(var(--cons-h) * 0.026), 12px);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #ffd977;
+    -webkit-text-fill-color: #ffd977;
+    background: none;
+  }
+
+  /* --- Lectura de apuesta · placa del case (x 25,71-61,94 % · y 17,52-31,20 %) */
+  .machine__side .controls .bet-readout,
+  .machine__side .controls__bet .bet-readout {
+    position: absolute;
+    left: 25.71%;
+    top: 17.52%;
+    z-index: 5;
+    width: 36.23%;
+    height: 13.68%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.22em;
+    margin: 0;
+    padding: 0 3%;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  .machine__side .controls .bet-readout__label {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: clamp(7px, calc(var(--cons-h) * 0.030), 13px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #ffd977;
+    -webkit-text-fill-color: #ffd977;
+    background: none;
+    text-shadow: 0 1px 1px rgba(60, 0, 20, 0.75);
+  }
+
+  .machine__side .controls .bet-readout__value {
+    flex: 0 0 auto;
+    max-width: 100%;
+    margin: 0;
+    font-size: clamp(13px, calc(var(--cons-h) * 0.060), 28px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: #fff6c9;
+    -webkit-text-fill-color: #fff6c9;
+    background-image: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    -webkit-text-stroke: 0;
+    filter: none;
+    text-shadow: 0 1px 0 rgba(80, 30, 0, 0.6), 0 0 10px rgba(255, 214, 90, 0.4);
+  }
+
+  /* --- Rotulos de los pulsadores ------------------------------------------
+     El case trae los caramelos vacios: SPIN, TROPICAL FEVER, AUTO y MAX se
+     pintan aqui, centrados en su capsula. Los iconos (−, +, estrella y flecha)
+     ya estan dibujados, igual que el barrido antiguo del `.shine`. */
+  .machine__side .controls .chip__icon,
+  .machine__side .controls .btn__glyph,
+  .machine__side .controls .btn__chev,
+  .machine__side .controls .gbtn .shine { display: none; }
+
+  .machine__side .controls .btn__main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .machine__side .controls .gbtn .btn__title {
+    font-size: clamp(8px, calc(var(--cons-h) * 0.048), 22px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    color: #fff;
+    -webkit-text-fill-color: #fff;
+    background-image: none;
+    -webkit-text-stroke: 1px rgba(8, 40, 90, 0.35);
+    paint-order: stroke fill;
+    text-shadow: 0 2px 0 rgba(6, 40, 96, 0.5);
+  }
+
+  /* Capsula dorada: tinta tostada sobre caramelo claro. */
+  .machine__side .controls #btn-feature .btn__main .btn__title {
+    color: #7a3200;
+    -webkit-text-fill-color: #7a3200;
+    -webkit-text-stroke: 0;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  /* Capsula azul: tinta blanca con contorno marino. */
+  .machine__side .controls #btn-auto .btn__main .btn__title {
+    color: #fff;
+    -webkit-text-fill-color: #fff;
+    -webkit-text-stroke: 1px rgba(8, 40, 90, 0.45);
+    text-shadow: 0 2px 0 rgba(6, 40, 96, 0.55);
+  }
+
+  .machine__side .controls .btn--spin .btn__spin-label {
+    font-size: clamp(16px, calc(var(--cons-h) * 0.085), 40px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    color: #fff;
+    -webkit-text-fill-color: #fff;
+    background-image: none;
+    -webkit-text-stroke: 1.5px rgba(170, 10, 110, 0.55);
+    paint-order: stroke fill;
+    text-shadow: 0 3px 0 rgba(140, 0, 90, 0.55), 0 0 16px rgba(255, 210, 250, 0.5);
+  }
+
+  .machine__side .controls .btn--spin .btn__spin-icon svg {
+    width: clamp(18px, calc(var(--cons-h) * 0.085), 40px);
+    height: clamp(18px, calc(var(--cons-h) * 0.085), 40px);
+    stroke-width: 3.4;
+    filter: drop-shadow(0 2px 0 rgba(140, 0, 90, 0.45));
+  }
+
+  /* La placa dorada del MAX lleva su rotulo en tinta tostada. */
+  .machine__side .controls__bet #btn-bet-max .chip__label {
+    display: block;
+    padding: 0;
+    font-size: clamp(10px, calc(var(--cons-h) * 0.044), 20px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.03em;
+    color: #6e2d00;
+    -webkit-text-fill-color: #6e2d00;
+    background-image: none;
+    -webkit-text-stroke: 0;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  /* Capsula del valor dinamico (coste 100x y giros de AUTO). */
+  .machine__side .controls .gbtn .pill {
+    flex: 0 0 auto;
+    max-width: 45%;
+    padding: 0.1em 0.5em;
+    font-size: clamp(8px, calc(var(--cons-h) * 0.026), 13px);
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(60, 10, 40, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+    -webkit-text-stroke: 0;
+    text-shadow: none;
+  }
+
+  .machine__side .controls #btn-feature.gbtn .pill {
+    border-color: rgba(90, 40, 0, 0.3);
+    background: rgba(255, 255, 255, 0.34);
+    color: #6b2a00;
+    -webkit-text-fill-color: #6b2a00;
+  }
+
+  /* El estado del motor vive en la consola movil; en el case de escritorio no
+     hay placa libre y taparia el credito, asi que se retira de la vista. Los
+     ids siguen en el DOM y el cliente los actualiza igual. */
+  .machine__side .controls .statusbar { display: none; }
+
+  /* ------------------------------------------------------------------------
+     Bloque 4 · Marco del tablero (d1) y su ventana transparente
+     ------------------------------------------------------------------------ */
+  .machine__table {
+    grid-area: table;
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: var(--frame-w);
+    height: var(--frame-h);
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: url('../assets/d1.webp') no-repeat center / 100% 100%;
+    box-shadow: none;
+    /* Sin contenedor de tamaño: el alto lo fija `--frame-h`. */
+    container-type: normal;
+    overflow: visible;
+    align-self: center;
+    justify-self: center;
+  }
+
+  /* La ventana del dibujo (x 5,11-94,20 % · y 11,84-94,01 %) se tapa con el
+     tablero un pelo por fuera: asi su filo se mete bajo el aro dorado y no
+     asoma ni una linea de fondo entre el arte y las casillas. */
+  .machine__table .board {
+    position: absolute;
+    left: 5%;
+    top: 11.7%;
+    width: 89.3%;
+    height: 82.45%;
+    margin: 0;
+    padding: clamp(3px, calc(var(--frame-h) * 0.007), 8px);
+    border: 0;
+    border-radius: clamp(10px, calc(var(--frame-h) * 0.045), 44px);
+    max-width: none;
+    max-height: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -8px 18px rgba(96, 22, 74, 0.16);
+    overflow: hidden;
+  }
+
+  /* El filo de cristal queda en un susurro: el brillo del marco ya enmarca. */
+  .machine__table .board::before {
+    inset: 2px;
+    border-radius: inherit;
+    opacity: 0.4;
+  }
+
+  .machine__table .board::after { display: none; }
+
+  /* La cuadricula ocupa el hueco exacto: cinco filas se reparten el alto en
+     lugar de imponer su relacion de aspecto (que recortaria las casillas). */
+  .machine__table .grid {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    max-width: none;
+    max-height: none;
+    gap: clamp(3px, calc(var(--frame-h) * 0.011), 9px);
+  }
+
+  .machine__table .tile {
+    aspect-ratio: auto;
+    height: 100%;
+    border-width: 1px;
+    border-radius: clamp(6px, calc(var(--frame-h) * 0.018), 15px);
+  }
+
+  /* El caramelo se dibuja en el 88 % central de su celda: `contain` mantiene su
+     proporcion aunque la celda sea mas ancha que alta. */
+  .machine__table .tile__img {
+    position: absolute;
+    left: 6%;
+    top: 6%;
+    width: 88%;
+    height: 88%;
+    max-width: none;
+    max-height: none;
+    padding: 0;
+    object-fit: contain;
+    object-position: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Escritorio bajo (≤660 px de alto): el modulo hero se queda porque es el que
+   sostiene las tres placas y el logo ya no ocupa alto (es una capa absoluta,
+   igual que en movil); solo se reduce un poco para no asomar tanto.
+   -------------------------------------------------------------------------- */
+@media (min-width: 900px) and (max-height: 660px) {
+  .machine__side .machine__hero { display: block; }
+  .machine__side .machine__logo { width: 50%; top: 34.4%; }
+}
+
+/* Ventanas de menos de 470 px de alto: la placa del hero mide ~50 px y el
+   rotulo "MULTIPLICADOR" ya no cabe a un cuerpo legible. Se queda el dato,
+   que es lo que se lee de un vistazo; los rotulos vuelven en cuanto hay alto. */
+@media (min-width: 900px) and (max-height: 470px) {
+  .machine__side .hud .hud__label { display: none; }
+}
+
+/* Movimiento reducido: el logo se queda quieto y el caramelo no encoge, pero
+   seguiria respondiendo al foco y al estado deshabilitado. */
+@media (min-width: 900px) and (prefers-reduced-motion: reduce) {
+  .machine__side .machine__logo { animation: none; }
+  .machine__side .controls .gbtn::after { display: none; }
+  .machine__side .controls .gbtn:hover:not(:disabled)::before { opacity: 0.22; }
+}
