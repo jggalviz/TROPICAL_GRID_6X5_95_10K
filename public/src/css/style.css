@@ -7281,8 +7281,10 @@ body.is-demo .machine__side .controls .balance::after {
    Pantalla de victoria (WIN overlay)
    --------------------------------------------------------------------------
    Velo a pantalla completa con el cartel WIN, rayos girando y monedas cayendo
-   por los laterales. Aparece en los premios relevantes (10x la apuesta o mas)
-   y se cierra solo a los 3-4 s o con un toque en cualquier punto.
+   por los laterales. Aparece en cualquier victoria y se cierra solo (1,7 s en
+   premios bajos, 3 s en la banda 1-10x, 3,8-4,6 s en big/mega/epic) o con un
+   toque, Escape o un giro nuevo. La intensidad la elige `uiManager` con
+   `win / bet` y se aplica con `is-low` / `is-mid` / `is-high`.
 
    Reglas de rendimiento:
      - El velo funde `opacity`; los rayos (giro), la flotacion del cartel, el
@@ -7442,6 +7444,64 @@ body.is-demo .machine__side .controls .balance::after {
   animation: win-hint 2.4s ease-in-out infinite;
 }
 
+/* --------------------------------------------------------------------------
+   Intensidad de la pantalla de victoria
+   --------------------------------------------------------------------------
+   `is-low` (< 1x): el velo sigue siendo el mensaje del premio, pero mas ligero
+   y corto. Rayos quietos y casi transparentes, sin flotacion ni latido, y una
+   entrada breve sin rebote: el giro siguiente no espera.
+   `is-mid` (1-10x): sin reglas extra, usa el diseno base (22 monedas, rayos
+   girando 24 s, entrada `win-pop` y 3 s de permanencia).
+   `is-high` (> 10x): el mismo diseno con un rebote mas marcado; la lluvia
+   completa (42 monedas) y la permanencia los pone `uiManager`.
+   -------------------------------------------------------------------------- */
+
+.win.is-low {
+  background: rgba(0, 0, 0, 0.62);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.win.is-low .win__rays {
+  opacity: 0.22;
+  animation: none;
+}
+
+.win.is-low .win__art-wrap {
+  animation: none;
+}
+
+.win.is-low .win__art {
+  animation: win-pop-soft 0.34s ease-out both;
+}
+
+.win.is-low .win__amount {
+  animation: none;
+}
+
+.win.is-low .win__hint {
+  animation: none;
+  opacity: 0.55;
+}
+
+@keyframes win-pop-soft {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.win.is-high .win__art {
+  animation: win-pop-big 0.78s cubic-bezier(0.18, 1.62, 0.34, 1) both;
+}
+
+/* Rebote marcado para los premios altos: sobrepasa el 12 %, corrige y asienta. */
+@keyframes win-pop-big {
+  0% { opacity: 0; transform: scale(0); }
+  52% { opacity: 1; transform: scale(1.12); }
+  70% { transform: scale(0.965); }
+  86% { transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 @keyframes win-amount-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.035); }
@@ -7467,8 +7527,11 @@ body.is-demo .machine__side .controls .balance::after {
   to { opacity: 0; transform: scale(0.94); }
 }
 
-/* Con movimiento reducido no hay rayos, flotacion ni latido (el JS ni siquiera
-   abre la capa: el banner del tablero sigue siendo el mensaje accesible). */
+/* Con movimiento reducido la capa sigue abriendose (es el mensaje visual del
+   premio) pero sin rayos girando, flotacion, latido ni entrada: el cartel y el
+   importe aparecen ya resueltos y `uiManager` no lanza monedas. Las reglas de
+   perfil tienen mas especificidad que las base, asi que se repiten aqui (y al
+   ir despues en el archivo ganan tambien en cascada). */
 @media (prefers-reduced-motion: reduce) {
   .win,
   .win__rays,
@@ -7476,9 +7539,16 @@ body.is-demo .machine__side .controls .balance::after {
   .win__art,
   .win__amount,
   .win__hint,
-  .win.is-closing .win__stage { animation: none; }
+  .win.is-closing .win__stage,
+  .win.is-low .win__rays,
+  .win.is-low .win__art-wrap,
+  .win.is-low .win__art,
+  .win.is-low .win__amount,
+  .win.is-low .win__hint,
+  .win.is-high .win__art { animation: none; }
 
   .win__rays { opacity: 0.35; }
+  .win.is-low .win__rays { opacity: 0.22; }
 }
 
 /* --------------------------------------------------------------------------

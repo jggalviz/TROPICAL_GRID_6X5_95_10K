@@ -207,10 +207,68 @@ test('el cartel de victoria se sirve en WebP con alfa y el maestro queda fuera d
     'Los rayos deben girar con `rotateRays`'
   );
 
-  // Logica: apertura desde la celebracion, conteo ascendente y lluvia lateral.
-  assert.match(ui, /showWinOverlay\(level, amountText, cents = null\)/);
-  assert.match(ui, /this\.showWinOverlay\(key, amountText, cents\)/);
+  // Logica: la capa se abre para cualquier victoria y la intensidad escala con
+  // `win / bet` (antes solo big/mega/epic la abrian y el 88 % de las victorias
+  // del modo base se quedaban en el banner).
+  assert.match(ui, /resolveWinProfile_\(key, cents, betCents\)/);
+  assert.match(
+    ui,
+    /showWinOverlay\(level, amountText, \{ cents = null, profile = null \} = \{\}\)/
+  );
+  assert.match(ui, /this\.showWinOverlay\(key, amountText, \{ cents, profile \}\)/);
   assert.match(ui, /zone: 'sides'/);
+
+  // Tres perfiles con su lluvia y permanencia, y autocierre escalado por nivel.
+  assert.match(ui, /low: Object\.freeze\(\{[\s\S]*?coins: 8,[\s\S]*?durationMs: 1700,/);
+  assert.match(ui, /mid: Object\.freeze\(\{[\s\S]*?coins: 22,[\s\S]*?durationMs: 3000,/);
+  assert.match(ui, /high: Object\.freeze\(\{[\s\S]*?coins: 42,[\s\S]*?durationMs: 4200,/);
+  assert.match(
+    ui,
+    /WIN_HIGH_MS = Object\.freeze\(\{ big: 3800, mega: 4200, epic: 4600 \}\)/,
+    'big/mega/epic deben escalar la permanencia'
+  );
+
+  // Cualquier importe > 0 abre; ya no hay umbral binario por ratio.
+  assert.match(
+    ui,
+    /if \(key !== 'win'\) return true;\s*const won = Number\(cents\);\s*return Number\.isFinite\(won\) && won > 0;/,
+    'Cualquier victoria valida debe abrir la capa'
+  );
+  assert.doesNotMatch(ui, /WIN_OVERLAY_MIN_RATIO/, 'El umbral binario ya no debe existir');
+
+  // Movimiento reducido: la capa se abre en version estatica, no se cancela.
+  assert.doesNotMatch(
+    ui,
+    /if \(!node \|\| REDUCED_MOTION\) return false;/,
+    'Con prefers-reduced-motion la capa debe abrirse (sin animaciones), no descartarse'
+  );
+  assert.match(
+    ui,
+    /if \(this\.fx && !REDUCED_MOTION && tier\.coins > 0\) \{/,
+    'Sin movimiento no se lanza la lluvia de monedas'
+  );
+  assert.match(ui, /rollWinAmount_\(cents, amountText, tier\.rollMs\)/);
+
+  // El cliente pasa la apuesta real de la ronda para elegir el perfil.
+  const client = read(path.join(PUBLIC_DIR, 'src', 'js', 'gameClient.js'));
+  assert.match(
+    client,
+    /celebrate\(level\.key, formatCents\(total\), \{ cents: total, betCents: round\.betCents \}\)/,
+    'gameClient debe pasar betCents a celebrate'
+  );
+
+  // Perfiles CSS: entrada sutil para < 1x y rebote marcado para > 10x.
+  assert.match(css, /\.win\.is-low \.win__rays\s*\{[^}]*opacity:\s*0\.22;[^}]*animation:\s*none;/);
+  assert.match(css, /\.win\.is-low \.win__art\s*\{[^}]*animation:\s*win-pop-soft/);
+  assert.match(css, /\.win\.is-high \.win__art\s*\{[^}]*animation:\s*win-pop-big/);
+  assert.match(css, /@keyframes win-pop-big\s*\{[\s\S]*?scale\(1\.12\)/);
+
+  // La media query apaga animaciones (incluidos los perfiles) sin ocultar la capa.
+  assert.match(
+    css,
+    /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.win\.is-high \.win__art \{ animation: none; \}/,
+    'La media query debe apagar tambien el rebote de los premios altos'
+  );
 });
 
 

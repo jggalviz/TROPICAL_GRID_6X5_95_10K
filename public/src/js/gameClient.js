@@ -384,10 +384,12 @@ export class GameClient {
     const level = total > 0 ? winLevel(total, round.betCents) : null;
 
     if (level) {
-      /* El conteo ascendente es solo visual; la cifra final es la del payload. */
+      /* El conteo ascendente es solo visual; la cifra final es la del payload.
+         `betCents` elige el perfil de intensidad de la capa: por debajo de 1x
+         entra sutil y rapido, y de 10x en adelante con el efecto completo. */
       this.ui.setWin(total, { roll: true, level: level.key });
       this.ui.showBanner(level.key, formatCents(total));
-      this.ui.celebrate(level.key, formatCents(total), { cents: total });
+      this.ui.celebrate(level.key, formatCents(total), { cents: total, betCents: round.betCents });
       this.sfx.win(level.key);
       const bannerMs = level.key === 'mega' || level.key === 'epic' ? 3400 : 2200;
       setTimeout(() => this.ui.hideBanner(), bannerMs);

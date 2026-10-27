@@ -20,7 +20,8 @@ import { createFx } from './fx.js';
 import { columnsFromMatrix } from './reelMath.js';
 import { createReels } from './reels.js';
 
-const REDUCED_MOTION = typeof window.matchMedia === 'function'
+const REDUCED_MOTION = typeof window !== 'undefined'
+  && typeof window.matchMedia === 'function'
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const base = (ms) => (REDUCED_MOTION ? Math.min(ms, 20) : ms);
@@ -69,12 +70,50 @@ export function winLevel(winCents, betCents) {
 const LEVEL_LABEL = { win: 'GANANCIA', big: 'GRAN PREMIO', mega: 'MEGA', epic: '¡ÉPICA!' };
 
 /* Overlay de victoria: cartel WIN con rayos, importe en conteo rapido y lluvia
-   de monedas por los laterales. Los tiempos de cierre quedan entre 3 y 4 s. */
+   de monedas por los laterales. Cualquier victoria abre la capa; la intensidad
+   (destello, lluvia, entrada y permanencia) escala con `win / bet`. */
 const WIN_ART_SRC = '/src/assets/victoria_dulce.webp';
-const WIN_ROLL_MS = 900;
 const WIN_CLOSE_MS = 240;
-const WIN_OVERLAY_MS = Object.freeze({ win: 2600, big: 3000, mega: 3400, epic: 3800 });
-const WIN_COINS = Object.freeze({ win: 22, big: 26, mega: 34, epic: 42 });
+
+/* Perfiles de intensidad. `low` cubre los premios que no devuelven la apuesta
+   (< 1x), `mid` la banda 1-10x y `high` los niveles big/mega/epic (> 10x).
+   `power` alimenta el destello de `fx.flash`, `coins` la lluvia lateral,
+   `rollMs` el conteo del importe y `durationMs` el autocierre (el toque o
+   Escape siguen cerrando antes, en cualquier perfil). */
+const WIN_PROFILES = Object.freeze({
+  low: Object.freeze({
+    name: 'low',
+    coins: 8,
+    durationMs: 1700,
+    rollMs: 450,
+    power: 0.18,
+    rays: 'soft'
+  }),
+  mid: Object.freeze({
+    name: 'mid',
+    coins: 22,
+    durationMs: 3000,
+    rollMs: 900,
+    power: 0.5,
+    rays: 'full'
+  }),
+  high: Object.freeze({
+    name: 'high',
+    coins: 42,
+    durationMs: 4200,
+    rollMs: 900,
+    power: 0.8,
+    rays: 'full'
+  })
+});
+
+/* Permanencia de los niveles altos: cuanto mayor el multiplicador, mas aguanta
+   el cartel. big/mega/epic comparten perfil `high` y solo cambian el tiempo. */
+const WIN_HIGH_MS = Object.freeze({ big: 3800, mega: 4200, epic: 4600 });
+
+/* Por debajo de este ratio el perfil `low` no lanza monedas: el cartel y el
+   importe ya cuentan la victoria sin poblar la capa de particulas. */
+const WIN_LOW_MIN_RATIO_COINS = 0.2;
 
 export class Ui {
   constructor() {
@@ -537,69 +576,133 @@ export class Ui {
   }
 
   /**
-   * Escala de celebracion segun el nivel de premio que ya calculo el servidor:
+   * Escala de celebracion segun el nivel de premio que ya calculo el servidor y
+   * el ratio `win / bet`:
    *
-   *   win  -> el brillo y las chispas ya los puso `tile--win`.
-   *   big  -> pantalla de victoria + destello y enfasis del HUD.
-   *   mega -> overlay con lluvia lateral y temblor del marco.
-   *   epic -> lo mismo, con mas monedas y el cierre mas largo.
+   *   < 1x  -> pantalla de victoria sutil: sin giro de rayos, lluvia corta (o
+   *           ninguna por debajo de 0,2x), entrada breve y 1,7 s de velo.
+   *   1-10x -> pantalla estandar: 22 monedas, rayos girando y 3 s.
+   *   big   -> perfil alto: 42 monedas, rebote marcado y 3,8 s.
+   *   mega  -> lo mismo con destello casi pleno y 4,2 s.
+   *   epic  -> perfil alto completo, 4,6 s y temblor del marco.
    *
    * La pantalla de victoria sustituye al cartel 3D y al banner del tablero, que
-   * quedarian detras con el mismo importe. Con movimiento reducido no se abre
-   * (ver `showWinOverlay`) y el banner sigue siendo el unico mensaje.
+   * quedarian detras con el mismo importe. Con movimiento reducido se abre una
+   * version estatica (sin lluvia ni conteo): el CSS apaga rayos y animaciones,
+   * asi que sigue siendo el mensaje visual del premio.
    *
    * @param {string} level clave de `winLevel`
    * @param {string} amountText importe ya formateado
-   * @param {{cents?: number|null}} [options] importe autoritativo para el conteo
+   * @param {{cents?: number|null, betCents?: number|null}} [options]
+   *   importe autoritativo para el conteo y apuesta de la ronda, que elige el
+   *   perfil de intensidad (`resolveWinProfile_`)
    */
-  celebrate(level, amountText, { cents = null } = {}) {
+  celebrate(level, amountText, { cents = null, betCents = null } = {}) {
     const key = LEVEL_LABEL[level] ? level : 'win';
     this.bumpHud_(key);
-    if (!this.fx) return;
+    if (!this.fx) return; // sin capa de efectos no hay celebracion
+    if (!this.isWinWorthOverlay_(key, cents)) return;
 
-    if (key === 'big') {
-      this.fx.flash({ power: 0.5 });
-      if (this.showWinOverlay(key, amountText, cents) && this.refs.banner) {
-        this.refs.banner.classList.remove('is-visible');
-      }
-      return;
+    const profile = this.resolveWinProfile_(key, cents, betCents);
+    this.fx.flash({ power: profile.power });
+
+    if (this.showWinOverlay(key, amountText, { cents, profile })) {
+      if (this.refs.banner) this.refs.banner.classList.remove('is-visible');
+    } else if (key === 'mega' || key === 'epic') {
+      /* Respaldo sin capa montada: se mantiene el cartel 3D historico. */
+      this.fx.coinRain({ count: profile.coins });
+      const card = this.fx.mega(key === 'epic' ? '¡ÉPICA GANANCIA!' : '¡MEGA GANANCIA!', amountText);
+      if (card && this.refs.banner) this.refs.banner.classList.remove('is-visible');
     }
 
-    if (key === 'mega' || key === 'epic') {
-      const huge = key === 'epic';
-      this.fx.flash({ power: huge ? 1 : 0.8 });
+    if (key === 'mega' || key === 'epic') this.shakeFrame();
+  }
 
-      if (this.showWinOverlay(key, amountText, cents)) {
-        if (this.refs.banner) this.refs.banner.classList.remove('is-visible');
-      } else {
-        /* Respaldo sin overlay (movimiento reducido o capa no montada): se
-           mantiene el cartel 3D historico. */
-        this.fx.coinRain({ count: huge ? 44 : 34 });
-        const card = this.fx.mega(huge ? '¡ÉPICA GANANCIA!' : '¡MEGA GANANCIA!', amountText);
-        if (card && this.refs.banner) this.refs.banner.classList.remove('is-visible');
-      }
+  /**
+   * ¿Hay una victoria que merezca la pantalla completa?
+   *
+   * Cualquier importe > 0 cuenta, tambien los premios que no devuelven la
+   * apuesta: entran con el perfil `low`, que es sutil y rapido. Solo se
+   * descarta una ronda sin premio o un payload sin importe, para no anunciar
+   * un 0,00. Los niveles altos abren siempre, aunque falte el importe.
+   *
+   * @param {string} key nivel normalizado
+   * @param {number|null} cents importe ganado
+   * @returns {boolean}
+   */
+  isWinWorthOverlay_(key, cents) {
+    if (key !== 'win') return true;
+    const won = Number(cents);
+    return Number.isFinite(won) && won > 0;
+  }
 
-      this.shakeFrame();
+  /**
+   * Elige el perfil de intensidad a partir del ratio `win / bet`:
+   *
+   *   < 1x   -> `low` : lluvia corta (ninguna por debajo de 0,2x), rayos
+   *                    quietos y autocierre en 1,7 s.
+   *   1-10x  -> `mid` : 22 monedas, rayos girando, entrada estandar y 3 s.
+   *   >= 10x -> `high`: 42 monedas, rebote marcado y 3,8-4,6 s segun el nivel.
+   *
+   * Sin `betCents` no se puede medir el ratio; el importe sigue siendo
+   * autoritativo, asi que se usa `low` en lugar de prometer una intensidad que
+   * no consta. Los niveles big/mega/epic siempre reciben `high`.
+   *
+   * @param {string} key nivel normalizado
+   * @param {number|null} cents importe ganado
+   * @param {number|null} betCents apuesta de la ronda
+   * @returns {{name: string, coins: number, durationMs: number, rollMs: number, power: number, rays: string}}
+   */
+  resolveWinProfile_(key, cents, betCents) {
+    if (key !== 'win') {
+      const durationMs = WIN_HIGH_MS[key] || WIN_PROFILES.high.durationMs;
+      const power = key === 'epic' ? 1 : key === 'mega' ? 0.95 : WIN_PROFILES.high.power;
+      return { ...WIN_PROFILES.high, durationMs, power };
     }
+
+    const won = Number(cents);
+    const bet = Number(betCents);
+    const hasWon = Number.isFinite(won) && won > 0;
+    const hasBet = Number.isFinite(bet) && bet > 0;
+    const ratio = hasWon && hasBet ? won / bet : 0;
+
+    if (ratio >= 10) return { ...WIN_PROFILES.high, durationMs: WIN_HIGH_MS.big };
+    if (ratio >= 1) return { ...WIN_PROFILES.mid };
+
+    /* Sin importe no hay nada que llueva; con importe pero por debajo de 0,2x
+       se mantiene la lluvia corta del perfil bajo. */
+    const sparse = !hasWon || (hasBet && ratio < WIN_LOW_MIN_RATIO_COINS);
+    return {
+      ...WIN_PROFILES.low,
+      coins: sparse ? 0 : WIN_PROFILES.low.coins
+    };
   }
 
   /**
    * Abre la pantalla de victoria con el importe del payload.
    *
-   * Solo se abre con movimiento normal: con `prefers-reduced-motion` se deja el
-   * banner del tablero, que ya anuncia el premio sin animaciones. Devuelve
-   * `false` para que `celebrate` pueda usar el respaldo.
+   * Se abre tambien con `prefers-reduced-motion`: en ese caso no hay lluvia de
+   * monedas y la cifra aparece ya resuelta, porque el CSS apaga rayos, entrada
+   * y latido. Devuelve `false` solo si la capa no esta montada, para que
+   * `celebrate` pueda usar el respaldo del cartel 3D.
+   *
+   * El perfil se recibe ya resuelto (`resolveWinProfile_`) y decide la clase
+   * `is-low`/`is-mid`/`is-high`, las monedas, el conteo y el autocierre.
    *
    * @param {string} level clave de `winLevel`
    * @param {string} amountText importe ya formateado (respaldo sin centimos)
-   * @param {number|null} [cents] importe autoritativo para el conteo ascendente
+   * @param {{cents?: number|null, profile?: object|null}} [options]
+   *   importe autoritativo para el conteo y perfil resuelto; si falta el
+   *   perfil se calcula con el importe y sin apuesta
    * @returns {boolean} true si la capa se ha abierto
    */
-  showWinOverlay(level, amountText, cents = null) {
+  showWinOverlay(level, amountText, { cents = null, profile = null } = {}) {
     const node = this.refs.winOverlay;
-    if (!node || REDUCED_MOTION) return false;
+    if (!node) return false;
 
     const key = LEVEL_LABEL[level] ? level : 'win';
+    const tier = profile || this.resolveWinProfile_(key, cents, null);
+
     clearTimeout(this.winTimer);
     clearTimeout(this.winCloseTimer);
     this.winTimer = 0;
@@ -609,23 +712,21 @@ export class Ui {
     if (this.refs.winCurrency) this.refs.winCurrency.textContent = this.currency || '';
     if (this.refs.winAmount) this.refs.winAmount.textContent = formatCents(0);
 
-    node.classList.remove('is-closing');
+    node.classList.remove('is-closing', 'is-low', 'is-mid', 'is-high');
+    node.classList.add(`is-${tier.name}`);
     node.hidden = false;
     void node.offsetWidth; // reinicia la entrada elastica en cada victoria
 
-    this.rollWinAmount_(cents, amountText);
-    if (this.fx) {
+    this.rollWinAmount_(cents, amountText, tier.rollMs);
+    if (this.fx && !REDUCED_MOTION && tier.coins > 0) {
       this.fx.coinRain({
-        count: WIN_COINS[key] || WIN_COINS.big,
+        count: tier.coins,
         host: this.refs.winRain,
         zone: 'sides'
       });
     }
 
-    this.winTimer = setTimeout(
-      () => this.hideWinOverlay(),
-      WIN_OVERLAY_MS[key] || WIN_OVERLAY_MS.big
-    );
+    this.winTimer = setTimeout(() => this.hideWinOverlay(), tier.durationMs);
     return true;
   }
 
@@ -647,7 +748,7 @@ export class Ui {
 
     const finish = () => {
       node.hidden = true;
-      node.classList.remove('is-closing');
+      node.classList.remove('is-closing', 'is-low', 'is-mid', 'is-high');
       if (this.refs.winRain) this.refs.winRain.textContent = '';
       this.winCloseTimer = 0;
     };
@@ -665,20 +766,29 @@ export class Ui {
    * Conteo ascendente del importe: puramente visual, la cifra final es la del
    * payload. `tabular-nums` mantiene el ancho del numero y el latido ya promueve
    * la capa, asi que escribir texto no provoca layout ni repinta el velo.
+   *
+   * `rollMs` lo fija el perfil (450 ms en premios bajos, 900 ms en el resto),
+   * de modo que un 0,30 no se queda contando mas tiempo del que dura el velo.
    */
-  rollWinAmount_(cents, fallbackText) {
+  rollWinAmount_(cents, fallbackText, rollMs = 900) {
     const node = this.refs.winAmount;
     if (!node) return;
 
     const target = Number(cents);
-    if (!Number.isFinite(target) || target <= 0 || typeof requestAnimationFrame !== 'function') {
+    if (
+      !Number.isFinite(target)
+      || target <= 0
+      || REDUCED_MOTION
+      || typeof requestAnimationFrame !== 'function'
+    ) {
       node.textContent = fallbackText;
       return;
     }
 
+    const duration = Number.isFinite(rollMs) && rollMs > 0 ? rollMs : 900;
     const started = performance.now();
     const step = (now) => {
-      const progress = Math.min(1, (now - started) / WIN_ROLL_MS);
+      const progress = Math.min(1, (now - started) / duration);
       const eased = 1 - (1 - progress) ** 3;
       node.textContent = formatCents(Math.round(target * eased));
 
@@ -705,7 +815,7 @@ export class Ui {
    * Precarga el cartel del overlay en tiempo ocioso.
    *
    * El `<img>` va con `loading="lazy"` dentro de una capa oculta: el navegador
-   * no lo descarga hasta el primer premio grande y 423 KB en ese momento se
+   * no lo descarga hasta la primera victoria y 423 KB en ese momento se
    * notarian como un hueco en mitad de la entrada elastica. Se pide una vez, sin
    * bloquear el arranque y sin prioridad alta.
    */
