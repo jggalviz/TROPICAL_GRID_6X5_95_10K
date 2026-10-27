@@ -7278,6 +7278,73 @@ body.is-demo .machine__side .controls .balance::after {
 }
 
 /* --------------------------------------------------------------------------
+   Onda suave del reposo (idle wave)
+   Con el tablero quieto los simbolos flotan dentro de su casilla y una onda
+   recorre las seis columnas de izquierda a derecha: el tablero respira sin
+   mover ni un pixel la rejilla (nada de layout, huecos ni scroll).
+
+   Reglas de rendimiento:
+     - Se anima la propiedad individual `translate` y NO `transform`: el
+       compositor la resuelve por su cuenta y deja `transform` libre para el
+       hover, `tile--drop`, `tile--win` y `tile--pop`, que se combinan encima
+       sin pisarse.
+     - El desfase es NEGATIVO: la onda ya esta en marcha desde el primer frame
+       en lugar de arrancar en seis tiempos distintos.
+     - `--col-index` lo fija `reels.js` en cada carril y lo hereda la tira.
+     - Sin `will-change`: una animacion continua de `translate` ya promueve la
+       capa y reservarlo en 42 celdas solo gasta memoria de GPU.
+     - Solo se mueve el contenido de la casilla (simbolo y placa de bomba),
+       nunca el marco: el `backdrop-filter` de `.tile` ni se recompone ni se
+       desalinea.
+   -------------------------------------------------------------------------- */
+
+.tile__img,
+.tile__glyph,
+.tile__bomb-value {
+  /* Amplitud del flotador: 2-3 px, algo menor en pantallas pequenas. */
+  --wave-lift: clamp(1.8px, 0.22vw, 2.8px);
+  animation: softWave var(--wave-duration, 2.8s) ease-in-out infinite;
+  animation-delay: calc(var(--col-index, 0) * -0.26s - var(--wave-row, 0s));
+}
+
+/* Micro desfase por fila: la onda entra en diagonal en lugar de mover la
+   columna entera como un bloque. `:nth-child` es el hueco de la tira y el
+   reciclado mueve los nodos, asi que sigue siempre a la fila visible sin
+   tocar el DOM. */
+.reel__strip > .tile:nth-child(1) { --wave-row: -0.10s; }
+.reel__strip > .tile:nth-child(2) { --wave-row: 0s; }
+.reel__strip > .tile:nth-child(3) { --wave-row: 0.10s; }
+.reel__strip > .tile:nth-child(4) { --wave-row: 0.20s; }
+.reel__strip > .tile:nth-child(5) { --wave-row: 0.30s; }
+.reel__strip > .tile:nth-child(6) { --wave-row: 0.40s; }
+.reel__strip > .tile:nth-child(7) { --wave-row: 0.50s; }
+
+/* Un solo eje y velocidad nula en los extremos: el recorrido se lee como un
+   flotador, no como un rebote. `translate` va antes que `transform`, asi que
+   ambos se suman sin conflicto. */
+@keyframes softWave {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 calc(-1 * var(--wave-lift, 2.6px)); }
+}
+
+/* La onda vive SOLO en reposo: anticipacion, giro, rebote, premio, pop,
+   scatter, impacto del marco y celebraciones la apagan. Al quitar la clase
+   vuelve sola, con el desfase ya aplicado.
+
+   `tile--drop` no aparece aqui por el simbolo: su propia animacion
+   (`tile-drop`, con mas especificidad) ya sustituye a la onda, y asi la
+   cascada conserva su rebote. Solo se apaga el glifo de reserva y la placa. */
+.reel:is(.is-anticipating, .is-spinning, .is-landed) :is(.tile__img, .tile__glyph, .tile__bomb-value),
+.tile:is(.tile--win, .tile--pop, .tile--scatter) :is(.tile__img, .tile__glyph, .tile__bomb-value),
+.tile--empty :is(.tile__img, .tile__glyph, .tile__bomb-value),
+.tile--drop :is(.tile__glyph, .tile__bomb-value),
+.board.is-landing :is(.tile__img, .tile__glyph, .tile__bomb-value),
+.grid.is-shaking :is(.tile__img, .tile__glyph, .tile__bomb-value),
+.machine__table.is-quaking :is(.tile__img, .tile__glyph, .tile__bomb-value) {
+  animation: none;
+}
+
+/* --------------------------------------------------------------------------
    Rodillos
    Cada columna del tablero es un carril: `.reel__strip` es la tira de simbolos
    y `.reel__body` la que se desplaza. Solo se animan `transform` (carril) y
@@ -7378,6 +7445,12 @@ body.is-demo .machine__side .controls .balance::after {
   .hud__cell.is-tick {
     animation: none;
   }
+
+  /* La onda de reposo tampoco corre: el tablero se queda quieto, pero todos
+     los estados (giro, caida, premio) siguen existiendo. */
+  .tile__img,
+  .tile__glyph,
+  .tile__bomb-value { animation: none; }
 
   .fx { display: none; }
 }

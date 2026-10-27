@@ -8,7 +8,8 @@
  * Solo se toca lo que el compositor puede resolver:
  *
  *   - `.reel__body`  -> `transform` (avance continuo, anticipacion, rebote)
- *   - `.reel`        -> `filter: blur()` (desenfoque de movimiento)
+ *   - `.reel`        -> `filter: blur()` (desenfoque de movimiento) y
+ *                       `--col-index` (desfase de la onda suave de reposo)
  *   - reciclado      -> UN `appendChild` por celda cruzada (la que sale por
  *                       arriba vuelve al final con simbolo nuevo)
  *
@@ -138,6 +139,9 @@ export function createReels({
         const el = document.createElement('div');
         el.className = 'reel';
         el.dataset.col = String(col);
+        /* Indice del carril (0..5): `style.css` lo usa para desfasar la onda
+           suave del reposo y que recorra el tablero de izquierda a derecha. */
+        el.style.setProperty('--col-index', String(col));
         el.style.setProperty('--reel-anticipation', `${config.anticipationMs}ms`);
         el.style.setProperty('--reel-delay', `${col * config.startStaggerMs}ms`);
         el.style.setProperty('--reel-bounce', `${config.bounceMs}ms`);
