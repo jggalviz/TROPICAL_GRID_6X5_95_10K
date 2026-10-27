@@ -68,6 +68,14 @@ export function winLevel(winCents, betCents) {
 
 const LEVEL_LABEL = { win: 'GANANCIA', big: 'GRAN PREMIO', mega: 'MEGA', epic: '¡ÉPICA!' };
 
+/* Overlay de victoria: cartel WIN con rayos, importe en conteo rapido y lluvia
+   de monedas por los laterales. Los tiempos de cierre quedan entre 3 y 4 s. */
+const WIN_ART_SRC = '/src/assets/victoria_dulce.webp';
+const WIN_ROLL_MS = 900;
+const WIN_CLOSE_MS = 240;
+const WIN_OVERLAY_MS = Object.freeze({ win: 2600, big: 3000, mega: 3400, epic: 3800 });
+const WIN_COINS = Object.freeze({ win: 22, big: 26, mega: 34, epic: 42 });
+
 export class Ui {
   constructor() {
     this.tiles = [];
@@ -96,6 +104,11 @@ export class Ui {
     this.frameShakeTimer = 0;
     this.hudTimer = 0;
     this.mxTimer = 0;
+    /* Overlay de victoria: cierre automatico, salida y conteo del importe. */
+    this.winTimer = 0;
+    this.winCloseTimer = 0;
+    this.winRollRaf = 0;
+    this.winArtPreload = null;
   }
 
   mount() {
@@ -141,7 +154,12 @@ export class Ui {
       infoDraws: byId('info-draws'),
       infoRtpBase: byId('info-rtp-base'),
       infoRtpFeature: byId('info-rtp-feature'),
-      infoCap: byId('info-cap')
+      infoCap: byId('info-cap'),
+      winOverlay: byId('win-overlay'),
+      winRain: byId('win-rain'),
+      winAmount: byId('win-amount'),
+      winCurrency: byId('win-currency'),
+      winArt: byId('win-art')
     };
 
     /* Contenedores que reciben los efectos de impacto y de camara. */
@@ -156,15 +174,25 @@ export class Ui {
       if (event.target instanceof HTMLElement && event.target.dataset.close === '1') this.closeModal();
     });
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') this.closeModal();
+      if (event.key !== 'Escape') return;
+      this.closeModal();
+      this.hideWinOverlay();
     });
     this.refs.helpBtn.addEventListener('click', () => this.showInfo());
     this.refs.soundBtn.addEventListener('click', () => {
       if (typeof this.handlers.onSound === 'function') this.handlers.onSound();
     });
 
+    /* La pantalla de victoria se cierra con un toque en cualquier punto. Se usa
+       `pointerdown` (responde antes que `click` y no se pierde si el dedo se
+       desplaza) y la capa nunca deja pasar el gesto al tablero. */
+    if (this.refs.winOverlay) {
+      this.refs.winOverlay.addEventListener('pointerdown', () => this.hideWinOverlay());
+    }
+
     this.renderPlaceholderGrid();
     this.renderHistoryEmpty();
+    this.preloadWinArt_();
   }
 
   /* ---------------------------------------------------------------- tablero */
@@ -380,6 +408,9 @@ export class Ui {
   }
 
   startSpinning() {
+    /* Un giro nuevo no hereda el velo del premio anterior: si el jugador
+       relanza antes del cierre automatico, la capa desaparece de inmediato. */
+    this.hideWinOverlay({ immediate: true });
     if (this.fx) this.fx.clear();
     this.clearHighlights();
     this.preloadSymbols_();
@@ -509,37 +540,191 @@ export class Ui {
    * Escala de celebracion segun el nivel de premio que ya calculo el servidor:
    *
    *   win  -> el brillo y las chispas ya los puso `tile--win`.
-   *   big  -> destello de pantalla + enfasis del HUD (el conteo ascendente va
-   *           en `setWin`).
-   *   mega -> cartel 3D, lluvia de monedas y temblor del marco.
-   *   epic -> lo mismo, con mas intensidad.
+   *   big  -> pantalla de victoria + destello y enfasis del HUD.
+   *   mega -> overlay con lluvia lateral y temblor del marco.
+   *   epic -> lo mismo, con mas monedas y el cierre mas largo.
+   *
+   * La pantalla de victoria sustituye al cartel 3D y al banner del tablero, que
+   * quedarian detras con el mismo importe. Con movimiento reducido no se abre
+   * (ver `showWinOverlay`) y el banner sigue siendo el unico mensaje.
    *
    * @param {string} level clave de `winLevel`
    * @param {string} amountText importe ya formateado
+   * @param {{cents?: number|null}} [options] importe autoritativo para el conteo
    */
-  celebrate(level, amountText) {
+  celebrate(level, amountText, { cents = null } = {}) {
     const key = LEVEL_LABEL[level] ? level : 'win';
     this.bumpHud_(key);
     if (!this.fx) return;
 
     if (key === 'big') {
       this.fx.flash({ power: 0.5 });
+      if (this.showWinOverlay(key, amountText, cents) && this.refs.banner) {
+        this.refs.banner.classList.remove('is-visible');
+      }
       return;
     }
 
     if (key === 'mega' || key === 'epic') {
       const huge = key === 'epic';
       this.fx.flash({ power: huge ? 1 : 0.8 });
-      this.fx.coinRain({ count: huge ? 44 : 34 });
-      const card = this.fx.mega(huge ? '¡ÉPICA GANANCIA!' : '¡MEGA GANANCIA!', amountText);
 
-      /* El cartel 3D sustituye al banner del tablero, que quedaria detras con
-         el mismo importe. Con movimiento reducido no hay cartel y el banner se
-         queda como unico mensaje. */
-      if (card && this.refs.banner) this.refs.banner.classList.remove('is-visible');
+      if (this.showWinOverlay(key, amountText, cents)) {
+        if (this.refs.banner) this.refs.banner.classList.remove('is-visible');
+      } else {
+        /* Respaldo sin overlay (movimiento reducido o capa no montada): se
+           mantiene el cartel 3D historico. */
+        this.fx.coinRain({ count: huge ? 44 : 34 });
+        const card = this.fx.mega(huge ? '¡ÉPICA GANANCIA!' : '¡MEGA GANANCIA!', amountText);
+        if (card && this.refs.banner) this.refs.banner.classList.remove('is-visible');
+      }
 
       this.shakeFrame();
     }
+  }
+
+  /**
+   * Abre la pantalla de victoria con el importe del payload.
+   *
+   * Solo se abre con movimiento normal: con `prefers-reduced-motion` se deja el
+   * banner del tablero, que ya anuncia el premio sin animaciones. Devuelve
+   * `false` para que `celebrate` pueda usar el respaldo.
+   *
+   * @param {string} level clave de `winLevel`
+   * @param {string} amountText importe ya formateado (respaldo sin centimos)
+   * @param {number|null} [cents] importe autoritativo para el conteo ascendente
+   * @returns {boolean} true si la capa se ha abierto
+   */
+  showWinOverlay(level, amountText, cents = null) {
+    const node = this.refs.winOverlay;
+    if (!node || REDUCED_MOTION) return false;
+
+    const key = LEVEL_LABEL[level] ? level : 'win';
+    clearTimeout(this.winTimer);
+    clearTimeout(this.winCloseTimer);
+    this.winTimer = 0;
+    this.winCloseTimer = 0;
+    this.cancelWinAmountRoll_();
+
+    if (this.refs.winCurrency) this.refs.winCurrency.textContent = this.currency || '';
+    if (this.refs.winAmount) this.refs.winAmount.textContent = formatCents(0);
+
+    node.classList.remove('is-closing');
+    node.hidden = false;
+    void node.offsetWidth; // reinicia la entrada elastica en cada victoria
+
+    this.rollWinAmount_(cents, amountText);
+    if (this.fx) {
+      this.fx.coinRain({
+        count: WIN_COINS[key] || WIN_COINS.big,
+        host: this.refs.winRain,
+        zone: 'sides'
+      });
+    }
+
+    this.winTimer = setTimeout(
+      () => this.hideWinOverlay(),
+      WIN_OVERLAY_MS[key] || WIN_OVERLAY_MS.big
+    );
+    return true;
+  }
+
+  /**
+   * Cierra la capa de victoria. Con `immediate` (o con movimiento reducido) no
+   * se espera a la animacion de salida: lo usa `startSpinning` para que un giro
+   * nuevo no herede el velo del premio anterior.
+   *
+   * @param {{immediate?: boolean}} [options]
+   */
+  hideWinOverlay({ immediate = false } = {}) {
+    const node = this.refs.winOverlay;
+    if (!node || node.hidden) return;
+
+    clearTimeout(this.winTimer);
+    clearTimeout(this.winCloseTimer);
+    this.winTimer = 0;
+    this.cancelWinAmountRoll_();
+
+    const finish = () => {
+      node.hidden = true;
+      node.classList.remove('is-closing');
+      if (this.refs.winRain) this.refs.winRain.textContent = '';
+      this.winCloseTimer = 0;
+    };
+
+    if (immediate || REDUCED_MOTION) {
+      finish();
+      return;
+    }
+
+    node.classList.add('is-closing');
+    this.winCloseTimer = setTimeout(finish, WIN_CLOSE_MS);
+  }
+
+  /**
+   * Conteo ascendente del importe: puramente visual, la cifra final es la del
+   * payload. `tabular-nums` mantiene el ancho del numero y el latido ya promueve
+   * la capa, asi que escribir texto no provoca layout ni repinta el velo.
+   */
+  rollWinAmount_(cents, fallbackText) {
+    const node = this.refs.winAmount;
+    if (!node) return;
+
+    const target = Number(cents);
+    if (!Number.isFinite(target) || target <= 0 || typeof requestAnimationFrame !== 'function') {
+      node.textContent = fallbackText;
+      return;
+    }
+
+    const started = performance.now();
+    const step = (now) => {
+      const progress = Math.min(1, (now - started) / WIN_ROLL_MS);
+      const eased = 1 - (1 - progress) ** 3;
+      node.textContent = formatCents(Math.round(target * eased));
+
+      if (progress < 1) {
+        this.winRollRaf = requestAnimationFrame(step);
+        return;
+      }
+
+      this.winRollRaf = 0;
+      node.textContent = fallbackText; // cifra exacta del payload
+    };
+
+    this.winRollRaf = requestAnimationFrame(step);
+  }
+
+  cancelWinAmountRoll_() {
+    if (this.winRollRaf && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.winRollRaf);
+    }
+    this.winRollRaf = 0;
+  }
+
+  /**
+   * Precarga el cartel del overlay en tiempo ocioso.
+   *
+   * El `<img>` va con `loading="lazy"` dentro de una capa oculta: el navegador
+   * no lo descarga hasta el primer premio grande y 423 KB en ese momento se
+   * notarian como un hueco en mitad de la entrada elastica. Se pide una vez, sin
+   * bloquear el arranque y sin prioridad alta.
+   */
+  preloadWinArt_() {
+    if (this.winArtPreload || typeof Image !== 'function') return;
+
+    const start = () => {
+      if (this.winArtPreload) return;
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = WIN_ART_SRC;
+      this.winArtPreload = image;
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(start, { timeout: 4000 });
+      return;
+    }
+    setTimeout(start, 2200);
   }
 
   /** Enfasis de la placa de ganancia y del multiplicador (solo transform). */
@@ -582,6 +767,7 @@ export class Ui {
   setCurrency(currency) {
     this.currency = currency || 'EUR';
     if (this.refs.balanceCurrency) this.refs.balanceCurrency.textContent = this.currency;
+    if (this.refs.winCurrency) this.refs.winCurrency.textContent = this.currency;
   }
 
   /**

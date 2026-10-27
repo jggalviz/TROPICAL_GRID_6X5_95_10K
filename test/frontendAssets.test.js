@@ -21,6 +21,8 @@ const STYLE_PATH = path.join(PUBLIC_DIR, 'src', 'css', 'style.css');
 const INDEX_PATH = path.join(PUBLIC_DIR, 'index.html');
 const LOGO_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'PANA-CRUSH-LOGO.webp');
 const LOGO_MASTER_PATH = path.join(ROOT_DIR, 'design', 'pana_crush_ANIMACION-LOGO_final.gif');
+const WIN_ART_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'victoria_dulce.webp');
+const WIN_MASTER_PATH = path.join(ROOT_DIR, 'design', 'victoria_dulce.png');
 const PUBLIC_SRC_DIR = path.join(PUBLIC_DIR, 'src');
 
 const read = (file) => fs.readFileSync(file, 'utf8');
@@ -128,6 +130,87 @@ test('el maestro del logo vive fuera de public/ y no viaja al CDN', () => {
     [],
     `public/src solo debe contener carpetas publicadas; sobran: ${strays.join(', ')}`
   );
+});
+
+test('el cartel de victoria se sirve en WebP con alfa y el maestro queda fuera de public/', () => {
+  const html = read(INDEX_PATH);
+  const css = read(STYLE_PATH);
+  const ui = read(path.join(PUBLIC_DIR, 'src', 'js', 'uiManager.js'));
+
+  // El maestro (2,7 MB) se archiva en `design/`: no viaja al CDN ni se puede
+  // colar como respaldo en `public/src/assets`.
+  assert.ok(fs.existsSync(WIN_MASTER_PATH), 'Falta el maestro design/victoria_dulce.png');
+  assert.ok(fs.statSync(WIN_MASTER_PATH).size > 0, 'El maestro del cartel esta vacio');
+  assert.ok(
+    !fs.existsSync(path.join(PUBLIC_DIR, 'src', 'assets', '¡Victoria dulce!.png')),
+    'El PNG maestro no debe quedarse en public/src/assets'
+  );
+
+  assert.ok(fs.existsSync(WIN_ART_PATH), 'Falta public/src/assets/victoria_dulce.webp');
+  const binary = fs.readFileSync(WIN_ART_PATH);
+  assert.equal(binary.toString('ascii', 0, 4), 'RIFF', 'El cartel debe ser un contenedor RIFF/WebP');
+  assert.equal(binary.toString('ascii', 8, 12), 'WEBP', 'El cartel debe ser un WebP real');
+
+  const chunks = webpChunks(binary);
+  assert.equal(chunks[0].fourCC, 'VP8X', 'El cartel debe declarar extensiones (VP8X)');
+  assert.ok(
+    chunks.some((chunk) => chunk.fourCC === 'ALPH'),
+    'El cartel debe conservar el canal alfa del maestro (ALPH): sin el, el velo taparia la pantalla'
+  );
+  assert.ok(
+    chunks.some((chunk) => chunk.fourCC === 'VP8 '),
+    'El cartel debe ser un WebP lossy (VP8), no un PNG disfrazado'
+  );
+
+  // Sin deformar: 1152 x 768 es el 75 % exacto del maestro 1536 x 1024 (3:2).
+  const master = fs.readFileSync(WIN_MASTER_PATH);
+  assert.equal(master.toString('ascii', 1, 4), 'PNG', 'design/victoria_dulce.png debe ser el PNG maestro');
+  const masterWidth = master.readUInt32BE(16);
+  const masterHeight = master.readUInt32BE(20);
+  const width = binary.readUIntLE(chunks[0].offset + 12, 3) + 1;
+  const height = binary.readUIntLE(chunks[0].offset + 15, 3) + 1;
+
+  assert.equal(width, 1152, 'El cartel debe servirse a 1152 px de ancho (ver build:win)');
+  assert.equal(height, 768, 'El cartel debe servirse a 768 px de alto (ver build:win)');
+  assert.ok(
+    Math.abs(width / height - masterWidth / masterHeight) < 0.002,
+    `El cartel deforma el maestro: ${width}x${height} contra ${masterWidth}x${masterHeight}`
+  );
+
+  // Peso: el lienzo completo a q=90 pesa 573 KB y se pinta a 640 px CSS como
+  // maximo. 1152 px conservan el detalle retina y dejan el archivo en ~423 KB.
+  assert.ok(
+    binary.length < 450 * 1024,
+    `El cartel pesa ${(binary.length / 1024).toFixed(1)} KB (objetivo < 450 KB)`
+  );
+
+  // Capa dedicada, con el arte, la lluvia y el importe que rellena `uiManager`.
+  // Es decorativa (`aria-hidden`): el banner del tablero anuncia el premio.
+  assert.match(
+    html,
+    /<div class="win" id="win-overlay" hidden aria-hidden="true">/,
+    'Falta la capa #win-overlay'
+  );
+  assert.match(html, /src="\/src\/assets\/victoria_dulce\.webp"/, 'La capa debe usar el WebP optimizado');
+  assert.match(html, /id="win-rain"/, 'Falta el contenedor de la lluvia de monedas');
+  assert.match(html, /id="win-amount"/, 'Falta el contador del premio');
+  assert.match(html, /id="win-currency"/, 'Falta la divisa del premio');
+
+  // Velo oscuro con blur y rayos girando; la capa nunca debe generar scroll.
+  assert.match(css, /\.win\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;/);
+  assert.match(css, /\.win\s*\{[^}]*background:\s*rgba\(0, 0, 0, 0\.75\);/);
+  assert.match(css, /\.win\s*\{[^}]*\n\s*backdrop-filter:\s*blur\(4px\);/);
+  assert.match(css, /\.win\s*\{[^}]*overflow:\s*clip;/);
+  assert.match(
+    css,
+    /@keyframes rotateRays\s*\{\s*from\s*\{\s*transform:\s*rotate\(0deg\);\s*\}\s*to\s*\{\s*transform:\s*rotate\(360deg\);\s*\}\s*\}/,
+    'Los rayos deben girar con `rotateRays`'
+  );
+
+  // Logica: apertura desde la celebracion, conteo ascendente y lluvia lateral.
+  assert.match(ui, /showWinOverlay\(level, amountText, cents = null\)/);
+  assert.match(ui, /this\.showWinOverlay\(key, amountText, cents\)/);
+  assert.match(ui, /zone: 'sides'/);
 });
 
 

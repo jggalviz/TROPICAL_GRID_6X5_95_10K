@@ -169,25 +169,43 @@ export function createFx() {
     track(el, 700);
   }
 
-  /** Lluvia de monedas y caramelos por toda la pantalla (MEGA WIN). */
-  function coinRain({ count = 40 } = {}) {
+  /**
+   * Lluvia de monedas y caramelos.
+   *
+   * Por defecto cae por toda la pantalla sobre la capa `#fx` (MEGA WIN). El
+   * overlay de victoria pasa su propio `host` y `zone: 'sides'` para que la
+   * cascada caiga por los laterales, dentro del velo, sin mezclarse con las
+   * chispas del tablero.
+   *
+   * @param {{count?: number, host?: Element|null, zone?: 'full'|'sides'}} [options]
+   */
+  function coinRain({ count = 40, host = null, zone = 'full' } = {}) {
     if (!CAN_ANIMATE || document.hidden) return;
-    const host = ensureLayer();
-    const total = Math.min(count, Math.max(0, NODE_BUDGET - host.childElementCount));
+    const target = host || ensureLayer();
+    const total = Math.min(count, Math.max(0, NODE_BUDGET - target.childElementCount));
     if (total <= 0) return;
 
     for (let i = 0; i < total; i += 1) {
+      const left = i % 2 === 0;
       const el = document.createElement('span');
       el.className = 'fx__coin';
       el.textContent = pick(COIN_FACES);
-      el.style.setProperty('--x', `${fixed(rand(-4, 102))}vw`);
-      el.style.setProperty('--drift', `${fixed(rand(-8, 8))}vw`);
+      el.style.setProperty(
+        '--x',
+        `${fixed(zone === 'sides' ? (left ? rand(-4, 14) : rand(86, 104)) : rand(-4, 102))}vw`
+      );
+      /* En los laterales la deriva entra hacia el centro: la cascada se lee
+         como un marco de monedas y no como una cortina uniforme. */
+      el.style.setProperty(
+        '--drift',
+        `${fixed(zone === 'sides' ? (left ? rand(1, 7) : rand(-7, -1)) : rand(-8, 8))}vw`
+      );
       el.style.setProperty('--s', `${Math.round(rand(18, 40))}px`);
       el.style.setProperty('--r0', `${Math.round(rand(-80, 80))}deg`);
       el.style.setProperty('--r1', `${Math.round(rand(300, 900))}deg`);
       el.style.setProperty('--t', `${Math.round(rand(1500, 2800))}ms`);
       el.style.setProperty('--d', `${Math.round(rand(0, 900))}ms`);
-      host.appendChild(el);
+      target.appendChild(el);
       track(el, 3900);
     }
   }

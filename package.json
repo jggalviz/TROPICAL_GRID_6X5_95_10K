@@ -17,6 +17,7 @@
     "build:desktop-art": "node scripts/build-desktop-art.js",
     "build:bg": "node scripts/build-backgrounds.js",
     "build:logo": "node scripts/build-logo-asset.js",
+    "build:win": "node scripts/build-win-art.js",
     "vercel-build": "node scripts/build-index-html.js",
     "simulate": "node scripts/simulate.js",
     "simulate:validate": "node scripts/simulate.js --rounds=20000 --mode=base --crypto",

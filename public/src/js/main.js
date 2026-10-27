@@ -27,6 +27,7 @@ function bootstrap() {
 
   const sfx = createSfx();
   const game = new GameClient({ api, ui, sfx, session });
+  const winOverlay = document.getElementById('win-overlay');
 
   /* --- Controles --- */
   ui.refs.spinBtn.addEventListener('click', () => {
@@ -61,6 +62,12 @@ function bootstrap() {
 
     if (event.code === 'Space' || event.key === 'Enter') {
       event.preventDefault();
+      /* Con la pantalla de victoria abierta, la accion es cerrarla: evita que
+         un toque de mas lance una tirada antes de ver el premio. */
+      if (winOverlay && !winOverlay.hidden) {
+        ui.hideWinOverlay();
+        return;
+      }
       if (!ui.busy && !game.autoRunning) void game.spin();
       return;
     }

@@ -222,6 +222,27 @@
        cartel de gran premio. La rellena `fx.js` y nunca recibe eventos. -->
   <div class="fx" id="fx" aria-hidden="true"></div>
 
+  <!-- Pantalla de victoria (GRAN PREMIO / MEGA / EPICA). Se muestra encima del
+       juego con el cartel WIN, rayos giratorios y monedas cayendo por los
+       laterales; `uiManager` la cierra sola a los 3-4 s o con un toque.
+       Es decorativa para lectores de pantalla (`aria-hidden`): la cifra y el
+       nivel los anuncia el banner del tablero, que es la region viva. -->
+  <div class="win" id="win-overlay" hidden aria-hidden="true">
+    <div class="win__rays" aria-hidden="true"></div>
+    <div class="win__rain" id="win-rain" aria-hidden="true"></div>
+    <div class="win__stage">
+      <div class="win__art-wrap">
+        <img class="win__art" id="win-art" src="/src/assets/victoria_dulce.webp"
+             alt="" width="1152" height="768" decoding="async" loading="lazy" />
+      </div>
+      <strong class="win__amount">
+        <span id="win-amount">0,00</span>
+        <span class="win__cur" id="win-currency">EUR</span>
+      </strong>
+      <span class="win__hint" aria-hidden="true">Toca para continuar</span>
+    </div>
+  </div>
+
   <div class="toast-stack" id="toasts" aria-live="assertive"></div>
 
   <div class="modal" id="modal" hidden>

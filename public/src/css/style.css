@@ -7278,6 +7278,210 @@ body.is-demo .machine__side .controls .balance::after {
 }
 
 /* --------------------------------------------------------------------------
+   Pantalla de victoria (WIN overlay)
+   --------------------------------------------------------------------------
+   Velo a pantalla completa con el cartel WIN, rayos girando y monedas cayendo
+   por los laterales. Aparece en los premios relevantes (10x la apuesta o mas)
+   y se cierra solo a los 3-4 s o con un toque en cualquier punto.
+
+   Reglas de rendimiento:
+     - El velo funde `opacity`; los rayos (giro), la flotacion del cartel, el
+       latido del importe y la entrada animan solo `transform`/`opacity`. Ni
+       filtros ni sombras por frame.
+     - El velo queda por encima de `.fx` (55) y por debajo del modal (60) y de
+       los toasts (70): nunca tapa un mensaje del sistema.
+     - Las monedas reutilizan `.fx__coin` con un `host` propio: caen dentro del
+       recorte del velo y se retiran con el.
+   -------------------------------------------------------------------------- */
+
+.win {
+  position: fixed;
+  inset: 0;
+  z-index: 56;
+  display: grid;
+  place-items: center;
+  overflow: clip;
+  background: rgba(0, 0, 0, 0.75);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  touch-action: manipulation;
+  animation: win-veil-in 0.28s ease-out both;
+}
+
+/* La regla del velo pisa el `display: none` del atributo `hidden`; sin esto la
+   capa se quedaria siempre visible. */
+.win[hidden] { display: none; }
+
+/* Halo calido detras del cartel: gradiente estatico, se rasteriza una vez. */
+.win::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(46% 42% at 50% 44%, rgba(255, 226, 128, 0.30), transparent 70%),
+    radial-gradient(80% 60% at 50% 112%, rgba(255, 92, 176, 0.22), transparent 72%);
+  pointer-events: none;
+}
+
+/* Rayos de luz: un unico gradiente conico girando con `transform`. La mascara
+   radial disuelve los bordes para que el giro no se lea como un rectangulo. */
+.win__rays {
+  position: absolute;
+  inset: -38% -22%;
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(255, 238, 150, 0.42) 0deg 3deg,
+    rgba(255, 238, 150, 0) 3deg 11deg
+  );
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 5%, rgba(0, 0, 0, 0.88) 24%, transparent 58%);
+  mask-image: radial-gradient(circle at 50% 50%, #000 5%, rgba(0, 0, 0, 0.88) 24%, transparent 58%);
+  animation: rotateRays 24s linear infinite;
+  will-change: transform;
+  pointer-events: none;
+}
+
+@keyframes rotateRays {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Lluvia de monedas del overlay: recibe los `.fx__coin` de `fx.coinRain()`. */
+.win__rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.win__stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.1vh, 14px);
+  width: 100%;
+  padding: 0 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Dos capas para no compartir `transform`: la entrada elastica vive en la
+   imagen y la flotacion continua en el envoltorio. */
+.win__art-wrap {
+  animation: win-float 3.6s ease-in-out 0.75s infinite;
+  will-change: transform;
+}
+
+.win__art {
+  display: block;
+  width: min(640px, 86vw, calc(58vh * 1.5));
+  height: auto;
+  transform-origin: 50% 60%;
+  animation: win-pop 0.66s cubic-bezier(0.2, 1.45, 0.36, 1) both;
+  will-change: transform, opacity;
+  user-select: none;
+}
+
+@keyframes win-veil-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Entrada elastica pedida: 0 -> 1.05 -> 1. */
+@keyframes win-pop {
+  0% { opacity: 0; transform: scale(0); }
+  58% { opacity: 1; transform: scale(1.05); }
+  78% { transform: scale(0.985); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes win-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
+}
+
+/* Importe dorado: el conteo ascendente escribe texto (con `tabular-nums` el
+   ancho no cambia), mientras el latido mueve la capa ya promovida por
+   `will-change`, asi que el repintado no sale de la caja del numero. */
+.win__amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.18em;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(32px, 6.4vw, 66px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #ffe36a;
+  text-shadow:
+    0 3px 0 #b05f00,
+    0 6px 0 #7d3a00,
+    0 10px 20px rgba(48, 12, 0, 0.6),
+    0 0 32px rgba(255, 214, 84, 0.85);
+  animation: win-amount-pulse 1.5s ease-in-out 0.55s infinite;
+  will-change: transform;
+}
+
+.win__cur {
+  font-size: 0.42em;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #fff6c8;
+  text-shadow: 0 2px 0 #a25400, 0 0 18px rgba(255, 238, 158, 0.8);
+}
+
+.win__hint {
+  font-size: clamp(10px, 1.6vw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 232, 0.72);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  animation: win-hint 2.4s ease-in-out infinite;
+}
+
+@keyframes win-amount-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+@keyframes win-hint {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+
+/* Cierre: el velo y el cartel se retiran con `opacity`/`scale` antes de que
+   `uiManager` vuelva a poner `hidden`. */
+.win.is-closing { animation: win-veil-out 0.24s ease-in forwards; }
+.win.is-closing .win__stage { animation: win-out 0.24s ease-in forwards; }
+
+@keyframes win-veil-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes win-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.94); }
+}
+
+/* Con movimiento reducido no hay rayos, flotacion ni latido (el JS ni siquiera
+   abre la capa: el banner del tablero sigue siendo el mensaje accesible). */
+@media (prefers-reduced-motion: reduce) {
+  .win,
+  .win__rays,
+  .win__art-wrap,
+  .win__art,
+  .win__amount,
+  .win__hint,
+  .win.is-closing .win__stage { animation: none; }
+
+  .win__rays { opacity: 0.35; }
+}
+
+/* --------------------------------------------------------------------------
    Onda suave del reposo (idle wave)
    Con el tablero quieto los simbolos flotan dentro de su casilla y una onda
    recorre las seis columnas de izquierda a derecha: el tablero respira sin
