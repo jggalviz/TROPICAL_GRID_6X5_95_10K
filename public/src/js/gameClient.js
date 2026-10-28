@@ -420,9 +420,18 @@ export class GameClient {
     this.sfx.drop(index);
     await sleep(Math.max(TIMING.drop, landMs || 0));
 
+    /* Cada premio del giro debe sonar en el momento en que se paga. El flag
+       evita duplicar el MP3 si el desglose ya lo disparo y solo deja el
+       fallback para payloads sin cascadas/scatter detallados. */
+    let winSoundPlayed = false;
+
     if (spin.scatter && spin.scatter.count >= 3) {
       this.ui.highlightCells(spin.scatter.cells, 'tile--scatter');
       this.sfx.cluster(12);
+      if (spin.scatter.payCents > 0) {
+        this.sfx.win();
+        winSoundPlayed = true;
+      }
       this.ui.toast(`Scatter ×${spin.scatter.count}: +${formatCents(spin.scatter.payCents)}`, {
         type: 'info',
         timeout: 2600
@@ -444,6 +453,10 @@ export class GameClient {
 
       running += step.winCents;
       this.ui.setWin(running, { roll: true });
+      if (step.winCents > 0) {
+        this.sfx.win();
+        winSoundPlayed = true;
+      }
 
       const bombsAfter = step.bombsAfter || [];
       const dropMs = this.ui.renderGrid(step.gridAfter, bombsAfter, { drop: true });
@@ -457,6 +470,9 @@ export class GameClient {
     }
 
     this.ui.clearHighlights();
+    /* Fallback: un giro con premio positivo siempre deja oir la victoria,
+       aunque el payload no traiga pasos de cascada con `winCents`. */
+    if (!winSoundPlayed && spin.winCents > 0) this.sfx.win();
     /* En el bonus cada giro tiene su propio multiplicador de bombas. */
     if (isFeature) this.ui.setMultiplier(spin.multiplier);
     return running;

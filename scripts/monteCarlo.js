@@ -135,6 +135,19 @@ function formatSignedDecimal(value, decimals = 4) {
   return `${value > 0 ? '+' : ''}${formatDecimal(value, decimals)}`;
 }
 
+/**
+ * Equivalencia de frecuencia: cuantos ensayos hacen falta, en media, para
+ * observar un evento. Devuelve `null` si no hubo eventos en la muestra.
+ * Solo se usa para estadisticos de presentacion, nunca para importes.
+ */
+function calculateOneInEvery(events, trials) {
+  const eventCount = Number(events);
+  const trialCount = Number(trials);
+  if (!Number.isFinite(eventCount) || !Number.isFinite(trialCount)) return null;
+  if (eventCount <= 0 || trialCount <= 0) return null;
+  return trialCount / eventCount;
+}
+
 /* ==========================================================================
  *  2. TRAMOS DE PREMIO
  * ========================================================================== */
@@ -519,11 +532,24 @@ function runMonteCarlo({
   const hitRate = hits / rounds;
   const profitHitRate = profitHits / rounds;
   const cappedRate = cappedRounds / rounds;
+  const misses = rounds - hits;
+  const roundsPerHit = calculateOneInEvery(hits, rounds);
+  const roundsPerProfitHit = calculateOneInEvery(profitHits, rounds);
+  const roundsPerMiss = calculateOneInEvery(misses, rounds);
+  const spinOneIn = calculateOneInEvery(spinHits, totalSpins);
+  const roundsPerCap = calculateOneInEvery(cappedRounds, rounds);
   const maxWinXBet = maxWinCents / betCents;
   const maxWinXWager = maxWinCents / wagerCents;
   const avgWinXBet = Number(wonCents) / (betCents * rounds);
   const bucketCountsSum = bucketCounts.reduce((sum, value) => sum + value, 0);
   const bucketWinsSum = bucketWins.reduce((sum, value) => sum + value, 0n);
+  const capCents = betCents * MAX_EXPOSURE_MULTIPLIER;
+  const headroomCents = capCents - maxWinCents;
+  const netCents = wageredCents - wonCents;
+  const avgWonPerRoundCents = Number(wonCents) / rounds;
+  const avgWonPerWinningRoundCents = hits > 0 ? Number(wonCents) / hits : 0;
+  const capUsage = capCents > 0 ? maxWinCents / capCents : 0;
+  const headroomPercent = capCents > 0 ? (headroomCents / capCents) * 100 : 0;
 
   const buckets = PRIZE_TIERS.map((tier, index) => ({
     id: tier.id,
@@ -533,6 +559,7 @@ function runMonteCarlo({
     share: bucketCounts[index] / rounds,
     sharePercent: formatRatioPercent(BigInt(bucketCounts[index]), BigInt(rounds), 4),
     paidCents: bucketWins[index].toString(),
+    paidCentsFormatted: groupDigits(bucketWins[index].toString()),
     paidCredits: formatCents(bucketWins[index]),
     payoutShare: wonCents > 0n ? Number(bucketWins[index]) / Number(wonCents) : 0,
     payoutSharePercent: formatRatioPercent(bucketWins[index], wonCents, 4),
@@ -562,10 +589,44 @@ function runMonteCarlo({
     roundsPerSecond: elapsedMs > 0 ? Math.round((rounds / elapsedMs) * 1000) : 0,
     hits,
     profitHits,
+    misses,
     hitRate,
     hitRatePercent: formatRatioPercent(BigInt(hits), BigInt(rounds), 4),
     profitHitRate,
     profitHitRatePercent: formatRatioPercent(BigInt(profitHits), BigInt(rounds), 4),
+    roundsPerHit,
+    roundsPerHitFormatted: roundsPerHit === null ? null : formatDecimal(roundsPerHit, 2),
+    roundsPerProfitHit,
+    roundsPerProfitHitFormatted: roundsPerProfitHit === null ? null : formatDecimal(roundsPerProfitHit, 2),
+    roundsPerMiss,
+    roundsPerMissFormatted: roundsPerMiss === null ? null : formatDecimal(roundsPerMiss, 2),
+    hitFrequency: {
+      definition: 'pago > 0',
+      hits,
+      rounds,
+      rate: hitRate,
+      percent: formatRatioPercent(BigInt(hits), BigInt(rounds), 4),
+      oneInRounds: roundsPerHit,
+      oneInRoundsFormatted: roundsPerHit === null ? null : formatDecimal(roundsPerHit, 2)
+    },
+    profitHitFrequency: {
+      definition: 'pago > apuesta',
+      hits: profitHits,
+      rounds,
+      rate: profitHitRate,
+      percent: formatRatioPercent(BigInt(profitHits), BigInt(rounds), 4),
+      oneInRounds: roundsPerProfitHit,
+      oneInRoundsFormatted: roundsPerProfitHit === null ? null : formatDecimal(roundsPerProfitHit, 2)
+    },
+    missFrequency: {
+      definition: 'pago = 0',
+      hits: misses,
+      rounds,
+      rate: misses / rounds,
+      percent: formatRatioPercent(BigInt(misses), BigInt(rounds), 4),
+      oneInRounds: roundsPerMiss,
+      oneInRoundsFormatted: roundsPerMiss === null ? null : formatDecimal(roundsPerMiss, 2)
+    },
     cappedRate,
     cappedRatePercent: formatRatioPercent(BigInt(cappedRounds), BigInt(rounds), 4),
     maxWinCents: maxWinCents.toString(),
@@ -579,6 +640,40 @@ function runMonteCarlo({
       wonCents: wonCents.toString(),
       wageredCredits: formatCents(wageredCents),
       wonCredits: formatCents(wonCents)
+    },
+    cents: {
+      betCents,
+      wagerPerRoundCents: wagerCents,
+      totalWageredCents: wageredCents.toString(),
+      totalWonCents: wonCents.toString(),
+      netCents: netCents.toString(),
+      netCredits: formatCents(netCents),
+      avgWonPerRoundCents,
+      avgWonPerRoundCentsFormatted: formatDecimal(avgWonPerRoundCents, 4),
+      avgWonPerWinningRoundCents,
+      avgWonPerWinningRoundCentsFormatted: formatDecimal(avgWonPerWinningRoundCents, 4)
+    },
+    caps: {
+      maxExposureX: MAX_EXPOSURE_MULTIPLIER,
+      maxExposureCents: capCents.toString(),
+      maxExposureCentsFormatted: groupDigits(capCents.toString()),
+      maxExposureCredits: formatCents(BigInt(capCents)),
+      cappedRounds,
+      cappedRate,
+      cappedRatePercent: formatRatioPercent(BigInt(cappedRounds), BigInt(rounds), 4),
+      roundsPerCap,
+      roundsPerCapFormatted: roundsPerCap === null ? null : formatDecimal(roundsPerCap, 2),
+      maxObservedWinCents: maxWinCents.toString(),
+      maxObservedWinCentsFormatted: groupDigits(maxWinCents.toString()),
+      maxObservedWinCredits: formatCents(BigInt(maxWinCents)),
+      maxObservedWinXBet: maxWinXBet,
+      maxObservedWinXWager: maxWinXWager,
+      maxWinCapUsagePercent: capUsage * 100,
+      headroomCents: headroomCents.toString(),
+      headroomCentsFormatted: groupDigits(headroomCents.toString()),
+      headroomCredits: formatCents(BigInt(headroomCents)),
+      headroomPercent,
+      capReached: maxWinCents >= capCents
     },
     rtp: {
       value: rtpValue,
@@ -625,6 +720,8 @@ function runMonteCarlo({
       spinHits,
       spinHitRate: totalSpins > 0 ? spinHits / totalSpins : 0,
       spinHitRatePercent: formatRatioPercent(BigInt(spinHits), BigInt(totalSpins || 1), 4),
+      spinOneIn,
+      spinOneInFormatted: spinOneIn === null ? null : formatDecimal(spinOneIn, 2),
       avgCascadesPerSpin: totalSpins > 0 ? cascadeTotal / totalSpins : 0,
       bombSpins,
       bombSpinRate: totalSpins > 0 ? bombSpins / totalSpins : 0,
@@ -685,11 +782,14 @@ function printReport(report) {
   console.log(` Tiempo .................: ${formatCount(Math.round(report.elapsedMs))} ms (${formatCount(report.roundsPerSecond)} rondas/s)`);
   console.log(sub);
 
-  console.log(' ECONOMIA Y RTP');
-  console.log(` Total apostado .........: ${report.totals.wageredCredits} creditos`);
-  console.log(` Total pagado ...........: ${report.totals.wonCredits} creditos`);
+  console.log(' ECONOMIA Y RTP (IMPORTES EXACTOS EN CENTIMOS)');
+  console.log(` Total apostado .........: ${report.totals.wageredCredits} creditos (${formatCount(report.totals.wageredCents)} cts)`);
+  console.log(` Total pagado ...........: ${report.totals.wonCredits} creditos (${formatCount(report.totals.wonCents)} cts)`);
+  console.log(` Resultado operador .....: ${report.cents.netCredits} creditos (${formatCount(report.cents.netCents)} cts)`);
+  console.log(` Pago medio / ronda .....: ${report.cents.avgWonPerRoundCentsFormatted} cts`);
+  console.log(` Pago medio si gana .....: ${report.cents.avgWonPerWinningRoundCentsFormatted} cts (${formatCount(report.hits)} rondas)`);
   console.log(` RTP empirico ...........: ${report.rtp.exactPercent} %`);
-  console.log(`   Formula ..............: (${report.totals.wonCredits} / ${report.totals.wageredCredits}) * 100`);
+  console.log(`   Formula ..............: (${formatCount(report.totals.wonCents)} cts / ${formatCount(report.totals.wageredCents)} cts) * 100`);
   console.log(`   Error estandar .......: ${formatDecimal(report.rtp.stdErrorPercent, 4)} pp`);
   console.log(`   IC 95% ...............: ${report.rtp.ci95.lowFormatted} % - ${report.rtp.ci95.highFormatted} %`);
   console.log(` RTP certificado ........: ${report.rtp.certifiedFormatted} % (referencia certificada)`);
@@ -698,12 +798,23 @@ function printReport(report) {
   console.log(` Certificado dentro IC .: ${report.rtp.certifiedWithinCi ? 'SI' : 'NO'}`);
   console.log(sub);
 
-  console.log(' FRECUENCIA DE ACIERTOS');
-  console.log(` Hit rate por ronda .....: ${report.hitRatePercent} % (${formatCount(report.hits)} de ${formatCount(report.rounds)})`);
-  console.log(` Acierto con beneficio ..: ${report.profitHitRatePercent} % (pago > apuesta)`);
+  console.log(' FRECUENCIA DE ACIERTOS (HIT FREQUENCY)');
+  console.log(` Hit frequency ..........: ${report.hitFrequency.percent} % (${formatCount(report.hitFrequency.hits)} de ${formatCount(report.hitFrequency.rounds)})`);
+  console.log(`   1 victoria por cada ..: ${report.hitFrequency.oneInRoundsFormatted
+    ? `${report.hitFrequency.oneInRoundsFormatted} giros (pago > 0)`
+    : 'sin victorias en la muestra'}`);
+  console.log(` Acierto con beneficio ..: ${report.profitHitFrequency.percent} % (pago > apuesta)`);
+  console.log(`   1 beneficio por cada .: ${report.profitHitFrequency.oneInRoundsFormatted
+    ? `${report.profitHitFrequency.oneInRoundsFormatted} giros`
+    : 'sin beneficios en la muestra'}`);
+  console.log(` Rondas sin premio ......: ${report.missFrequency.percent} %`);
+  console.log(`   1 giro sin premio ....: ${report.missFrequency.oneInRoundsFormatted
+    ? `cada ${report.missFrequency.oneInRoundsFormatted} giros`
+    : 'sin giros sin premio en la muestra'}`);
   console.log(` Hit rate por tirada ....: ${report.diagnostics.spinHitRatePercent} % (${formatCount(report.diagnostics.spinHits)} de ${formatCount(report.diagnostics.totalSpins)})`);
-  console.log(` Rondas sin premio ......: ${formatRatioPercent(BigInt(report.rounds - report.hits), BigInt(report.rounds), 4)} %`);
-  console.log(` Rondas topadas (tope) ..: ${report.cappedRatePercent} % (${formatCount(report.maxExposureX)}x)`);
+  console.log(`   1 premio por cada ....: ${report.diagnostics.spinOneInFormatted
+    ? `${report.diagnostics.spinOneInFormatted} tiradas internas`
+    : 'sin premios internos en la muestra'}`);
   console.log(sub);
 
   console.log(' VOLATILIDAD');
@@ -744,6 +855,44 @@ function printReport(report) {
   console.log(' Tramos: 0 | <1x | 1-<5x | 5-<25x | 25-<100x | 100-<umbral | >=umbral.');
   console.log(` Referencia: pagos en x apuesta base${report.buyFeature ? `; la compra cuesta ${report.creditCost}x` : ''}.`);
   console.log(` Umbral de jackpot: ${report.jackpotX}x apuesta base.`);
+  console.log(sub);
+
+  console.log(' DESGLOSE EXACTO POR TRAMO (CENTIMOS)');
+  console.log(` ${'Tramo'.padEnd(26)} ${'Rondas'.padStart(9)} ${'% rondas'.padStart(9)}`
+    + ` ${'Pagado cts'.padStart(16)} ${'Creditos'.padStart(14)} ${'RTP'.padStart(8)}`);
+  console.log(` ${'-'.repeat(26)} ${'-'.repeat(9)} ${'-'.repeat(9)}`
+    + ` ${'-'.repeat(16)} ${'-'.repeat(14)} ${'-'.repeat(8)}`);
+  for (const bucket of report.distribution) {
+    console.log(` ${bucket.label.padEnd(26)}`
+      + ` ${formatCount(bucket.rounds).padStart(9)}`
+      + ` ${`${bucket.sharePercent} %`.padStart(9)}`
+      + ` ${bucket.paidCentsFormatted.padStart(16)}`
+      + ` ${bucket.paidCredits.padStart(14)}`
+      + ` ${`${bucket.rtpContributionPercent} %`.padStart(8)}`);
+  }
+  console.log(` ${'TOTAL'.padEnd(26)}`
+    + ` ${formatCount(report.rounds).padStart(9)}`
+    + ` ${'100,0000 %'.padStart(9)}`
+    + ` ${formatCount(report.totals.wonCents).padStart(16)}`
+    + ` ${report.totals.wonCredits.padStart(14)}`
+    + ` ${`${report.rtp.exactPercent} %`.padStart(8)}`);
+  console.log(sub);
+
+  console.log(' TOPES DE GANANCIA OBSERVADOS');
+  console.log(` Tope de exposicion .....: ${formatCount(report.caps.maxExposureX)}x apuesta base`);
+  console.log(`   En centimos ..........: ${report.caps.maxExposureCentsFormatted} cts (${report.caps.maxExposureCredits} creditos)`);
+  console.log(` Rondas topadas .........: ${formatCount(report.caps.cappedRounds)} (${report.caps.cappedRatePercent} %)`
+    + (report.caps.roundsPerCapFormatted
+      ? ` -> 1 cada ${report.caps.roundsPerCapFormatted} rondas`
+      : ' -> sin topes en la muestra'));
+  console.log(` Maximo observado .......: ${report.caps.maxObservedWinCredits} creditos`);
+  console.log(`   En centimos ..........: ${report.caps.maxObservedWinCentsFormatted} cts`);
+  console.log(`   Equivalencia .........: ${formatDecimal(report.caps.maxObservedWinXBet, 2)}x apuesta base`
+    + ` (${formatDecimal(report.caps.maxObservedWinXWager, 2)}x importe apostado)`);
+  console.log(` Uso del tope ...........: ${formatDecimal(report.caps.maxWinCapUsagePercent, 4)} % del maximo permitido`);
+  console.log(` Holgura bajo el tope ...: ${report.caps.headroomCentsFormatted} cts`
+    + ` (${formatDecimal(report.caps.headroomPercent, 4)} %)`);
+  console.log(` Tope alcanzado .........: ${report.caps.capReached ? 'SI' : 'NO'}`);
   console.log(sub);
 
   console.log(' DIAGNOSTICO DEL MOTOR');
@@ -857,6 +1006,7 @@ module.exports = {
   formatCents,
   formatRatioPercent,
   formatDecimal,
+  calculateOneInEvery,
   percentile,
   createWelford,
   runMonteCarlo,

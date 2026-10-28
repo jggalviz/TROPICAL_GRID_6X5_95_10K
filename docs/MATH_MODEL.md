@@ -286,7 +286,10 @@ El reporte imprime:
   base (10 giros gratis).
 * **Hit rate** por ronda (pago > 0), hit con beneficio (pago > apuesta) y hit
   rate por tirada interna (útil en feature, donde una compra contiene 10
-  tiradas).
+  tiradas). Cada frecuencia se muestra en porcentaje y como equivalencia
+  `1 victoria por cada X giros` (o `1 tirada con premio por cada X tiradas`
+  internas), calculada como `rondas / casos`. Si no hay casos, se informa
+  explícitamente en lugar de mostrar una división por cero.
 * **Volatilidad**: σ del retorno por ronda, σ del premio, coeficiente de
   variación, percentiles (p50, p75, p90, p95, p99, p99.9) y máximo observado.
 * **Distribución de premios**, con número de casos, porcentaje de rondas, pago
@@ -295,6 +298,12 @@ El reporte imprime:
   pequeño (`1x–<5x`), mediano (`5x–<25x`), grande (`25x–<100x`), muy grande
   (`100x–<umbral`) y jackpot (`≥umbral`). El umbral por defecto es `1000x`
   y se cambia con `--jackpot=250`, por ejemplo.
+* **Desglose exacto en céntimos**: total apostado, total pagado, resultado del
+  operador, pago medio por ronda, pago medio por ronda ganadora y una tabla
+  por tramo con el pago en céntimos enteros y su equivalencia en créditos.
+* **Topes de ganancia observados**: tope de exposición en céntimos, número de
+  rondas topadas, frecuencia de tope, máximo premio observado y holgura hasta
+  el límite de `10.000x` la apuesta base.
 * **Diagnóstico**: cascadas medias, tiradas con bomba, tiradas con 3+ SC
   (scatter pagado) y multiplicador medio en tiradas con pago base.
 * **Controles de consistencia**: suma de tramos = rondas, suma de pagos = total,

@@ -10,6 +10,7 @@ const {
   formatCents,
   formatRatioPercent,
   formatDecimal,
+  calculateOneInEvery,
   createWelford,
   percentile,
   runMonteCarlo
@@ -30,6 +31,15 @@ test('monteCarlo: formatea dinero y porcentajes sin perder precision', () => {
 
   assert.equal(formatDecimal(94.92, 4), '94,9200');
   assert.equal(formatDecimal(-1.5, 2), '-1,50');
+});
+
+test('monteCarlo: la frecuencia se expresa como 1 por cada X', () => {
+  assert.equal(calculateOneInEvery(1, 4.5), 4.5);
+  assert.equal(calculateOneInEvery(2, 10), 5);
+  assert.equal(calculateOneInEvery(0, 100), null);
+  assert.equal(calculateOneInEvery(-1, 100), null);
+  assert.equal(calculateOneInEvery(10, 0), null);
+  assert.equal(formatDecimal(calculateOneInEvery(1, 4.5), 2), '4,50');
 });
 
 test('monteCarlo: los limites de los tramos son exactos', () => {
@@ -146,6 +156,28 @@ test('monteCarlo: una corrida base cuadra con el motor y es reproducible', () =>
   assert.equal(bucketRounds, report.rounds);
   assert.equal(bucketWins, BigInt(report.totals.wonCents));
   assert.equal(report.hitRate, (report.rounds - report.distribution[0].rounds) / report.rounds);
+  assert.equal(report.hitFrequency.percent, report.hitRatePercent);
+  assert.equal(
+    report.hitFrequency.oneInRoundsFormatted,
+    formatDecimal(report.rounds / report.hits, 2)
+  );
+  assert.equal(report.profitHitFrequency.percent, report.profitHitRatePercent);
+  assert.equal(report.missFrequency.hits, report.rounds - report.hits);
+  assert.equal(report.cents.totalWageredCents, report.totals.wageredCents);
+  assert.equal(report.cents.totalWonCents, report.totals.wonCents);
+  assert.equal(
+    report.cents.netCents,
+    (BigInt(report.totals.wageredCents) - BigInt(report.totals.wonCents)).toString()
+  );
+  assert.equal(report.caps.maxExposureCents, (report.betCents * 10000).toString());
+  assert.ok(report.caps.cappedRounds >= 0 && report.caps.cappedRounds <= report.rounds);
+  assert.equal(report.caps.capReached, report.maxWinCents === report.caps.maxExposureCents);
+  assert.ok(
+    report.distribution.every((bucket) => bucket.paidCentsFormatted === bucket.paidCents.replace(
+      /\B(?=(\d{3})+(?!\d))/g,
+      '.'
+    ))
+  );
   assert.ok(
     Math.abs(
       report.rtp.value - Number(report.totals.wonCents) / Number(report.totals.wageredCents)

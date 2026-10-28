@@ -49,6 +49,19 @@ test('en local (staticDir = public/) tambien se sirven los estaticos', async () 
     const asset = await request('GET', '/src/js/main.js');
     assert.equal(asset.status, 200);
     assert.match(asset.headers.get('content-type') || '', /javascript/);
+
+    const sound = await request('GET', '/src/assets/AUDIO-WIN-2.MP3');
+    assert.equal(sound.status, 200, 'El MP3 de victoria debe servirse en local');
+    assert.match(
+      sound.headers.get('content-type') || '',
+      /^audio\/mpeg/,
+      'Express debe servir el MP3 con su MIME de audio'
+    );
+    assert.equal(
+      Number(sound.headers.get('content-length')),
+      fs.statSync(path.join(__dirname, '..', 'public', 'src', 'assets', 'AUDIO-WIN-2.MP3')).size,
+      'El tamano servido debe coincidir con el asset de victoria'
+    );
   } finally {
     await server.close();
   }

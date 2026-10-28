@@ -23,6 +23,8 @@ const LOGO_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'PANA-CRUSH-LOGO.webp')
 const LOGO_MASTER_PATH = path.join(ROOT_DIR, 'design', 'pana_crush_ANIMACION-LOGO_final.gif');
 const WIN_ART_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'victoria_dulce.webp');
 const WIN_MASTER_PATH = path.join(ROOT_DIR, 'design', 'victoria_dulce.png');
+const WIN_SOUND_PATH = path.join(PUBLIC_DIR, 'src', 'assets', 'AUDIO-WIN-2.MP3');
+const SFX_PATH = path.join(PUBLIC_DIR, 'src', 'js', 'sfx.js');
 const PUBLIC_SRC_DIR = path.join(PUBLIC_DIR, 'src');
 
 const read = (file) => fs.readFileSync(file, 'utf8');
@@ -271,6 +273,55 @@ test('el cartel de victoria se sirve en WebP con alfa y el maestro queda fuera d
   );
 });
 
+test('la victoria usa el MP3 nuevo con precarga, volumen y desbloqueo por gesto', () => {
+  // El archivo se normaliza a `.MP3` exacto: el doble sufijo `.MP3.mpeg` hacia
+  // que la ruta del cliente y el MIME del CDN dependieran del servidor.
+  assert.ok(fs.existsSync(WIN_SOUND_PATH), 'Falta public/src/assets/AUDIO-WIN-2.MP3');
+  assert.ok(
+    !fs.existsSync(path.join(PUBLIC_DIR, 'src', 'assets', 'AUDIO-WIN-2.MP3.mpeg')),
+    'El asset antiguo con doble extension no debe seguir en public/'
+  );
+
+  const binary = fs.readFileSync(WIN_SOUND_PATH);
+  const hasId3 = binary.toString('ascii', 0, 3) === 'ID3';
+  const hasMpegFrame = binary[0] === 0xff && (binary[1] & 0xe0) === 0xe0;
+  assert.ok(hasId3 || hasMpegFrame, 'AUDIO-WIN-2.MP3 debe ser un MP3 valido');
+  assert.ok(binary.length > 0 && binary.length < 200 * 1024, 'El MP3 de victoria debe ser ligero');
+
+  const sfx = read(SFX_PATH);
+  assert.match(
+    sfx,
+    /export const WIN_SOUND_SRC = '\/src\/assets\/AUDIO-WIN-2\.MP3';/,
+    'sfx.js debe apuntar a la ruta publica del MP3 nuevo'
+  );
+  assert.match(sfx, /void preloadWinSound\(\);/);
+  assert.match(
+    sfx,
+    /fetch\(WIN_SOUND_SRC, \{\s*cache: 'force-cache',\s*credentials: 'same-origin'\s*\}\)/,
+    'La precarga debe usar el mismo origen y la cache del navegador'
+  );
+  assert.match(sfx, /ctx\.decodeAudioData\(/, 'El MP3 debe decodificarse en el AudioContext');
+  assert.match(sfx, /function unlockContext\(ctx\)/, 'El primer gesto debe desbloquear el audio');
+  assert.match(sfx, /createGain\(\)/, 'El reproductor debe controlar el volumen con un GainNode');
+  assert.match(
+    sfx,
+    /gain\.gain\.setValueAtTime\(WIN_SOUND_VOLUME, ctx\.currentTime\)/,
+    'El volumen del MP3 debe fijarse antes de reproducir'
+  );
+  assert.doesNotMatch(sfx, /arpeggio/, 'La victoria ya no debe usar el arpegio sintetizado anterior');
+
+  const client = read(path.join(PUBLIC_DIR, 'src', 'js', 'gameClient.js'));
+  assert.match(
+    client,
+    /this\.sfx\.win\(level\.key\);/,
+    'gameClient debe seguir disparando el sonido de victoria al celebrar'
+  );
+  assert.match(
+    sfx,
+    /while \(activeWinSources\.size >= MAX_WIN_VOICES\)/,
+    'Las cascadas con premio deben poder solapar voces de victoria'
+  );
+});
 
 test('la capa candyland mantiene el tablero protagonista y los caramelos grandes', () => {
   const css = read(STYLE_PATH);
