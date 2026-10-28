@@ -107,7 +107,7 @@ test('POST /api/spin con token demo resuelve la matriz, cascadas y saldo virtual
     round.balance.cents,
     100000 - round.wagerCents + round.totalWinCents
   );
-  assert.equal(round.audit.certifiedRtp, 0.9492);
+  assert.equal(round.audit.certifiedRtp, 0.9508);
 
   /* La base de datos real no recibio ninguna escritura. */
   const snapshot = store.__snapshot();

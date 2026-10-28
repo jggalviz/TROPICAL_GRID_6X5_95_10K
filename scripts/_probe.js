@@ -2,12 +2,12 @@
 
 /** PROBE TEMPORAL: compara mecanismos de generacion de cuadricula. */
 
-const { findClusters, model } = (() => {
+const { findGridPays, model } = (() => {
   const engine = require('../server/engine/gridEngine').createEngine();
-  return { findClusters: engine.internals.findClusters, model: engine.model };
+  return { findGridPays: engine.internals.findGridPays, model: engine.model };
 })();
 
-const PAYTABLE = model.clusterPaytableMicro;
+const PAYTABLE = model.gridPaytableMicro;
 const WEIGHTS = model.base.weights;
 
 function createRng(seed) {
@@ -81,20 +81,20 @@ function measure(label, generator, iterations = 40000) {
   const rng = createRng(987654321);
   let hits = 0;
   let pay = 0;
-  let clusters = 0;
+  let paysCount = 0;
   let maxSize = 0;
   for (let i = 0; i < iterations; i += 1) {
     const grid = generator(rng);
-    const found = findClusters(grid, PAYTABLE);
+    const found = findGridPays(grid, PAYTABLE);
     if (found.length > 0) hits += 1;
-    clusters += found.length;
-    for (const cluster of found) {
-      pay += cluster.payMicro;
-      maxSize = Math.max(maxSize, cluster.size);
+    paysCount += found.length;
+    for (const entry of found) {
+      pay += entry.payMicro;
+      maxSize = Math.max(maxSize, entry.size);
     }
   }
   console.log(`${label.padEnd(34)} hit=${((hits / iterations) * 100).toFixed(2)}%  `
-    + `agrup/cuad=${(clusters / iterations).toFixed(3)}  `
+    + `pagos/cuad=${(paysCount / iterations).toFixed(3)}  `
     + `pago medio=${(pay / iterations / 10000).toFixed(4)}x  maxSize=${maxSize}`);
 }
 

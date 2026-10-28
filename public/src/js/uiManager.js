@@ -1234,10 +1234,11 @@ export class Ui {
     return `
       <h3>Cómo se juega</h3>
       <ul>${rules}</ul>
-      <p>Cuadrícula de <strong>${info.grid.cols} × ${info.grid.rows}</strong> y agrupaciones
-      mínimas de <strong>${info.minClusterSize}</strong> símbolos conectados en horizontal o vertical.</p>
+      <p>Cuadrícula de <strong>${info.grid.cols} × ${info.grid.rows}</strong> y pagos por
+      dispersión mínimos de <strong>${info.minGridPaySize || info.minClusterSize}</strong> símbolos
+      iguales en cualquier posición (no hace falta que estén conectados).</p>
 
-      <h3>Pagos por agrupación (× apuesta)</h3>
+      <h3>Pagos por dispersión (× apuesta)</h3>
       <table class="paytable">
         <thead><tr><th>Símbolo</th><th>8–9</th><th>10–11</th><th>12+</th></tr></thead>
         <tbody>${clusterRows}</tbody>

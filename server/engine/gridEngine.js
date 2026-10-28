@@ -9,23 +9,26 @@
  *  REGLAS DEL JUEGO (RESUMEN NORMATIVO)
  *  ---------------------------------------------------------------------------
  *  1. Cuadricula FIJA de 6 columnas x 5 filas (30 celdas). No hay lineas.
- *  2. Pagos por AGRUPACION (Cluster Pays): 8 o mas simbolos regulares (S1..S9)
- *     conectados ortogonalmente (arriba/abajo/izquierda/derecha). No se
- *     consideran diagonales. Todas las agrupaciones se pagan simultaneamente.
- *  3. Tabla de pagos por agrupacion (multiplos de la apuesta total):
+ *  2. PAGOS POR DISPERSION (Grid Pays): 8 o mas simbolos regulares (S1..S9)
+ *     iguales en CUALQUIER posicion de la cuadricula. No importa que esten
+ *     conectados ni adyacentes: solo cuenta el total de apariciones.
+ *  3. Tabla de pagos por conteo disperso (multiplos de la apuesta total):
  *         8-9 simbolos | 10-11 simbolos | 12+ simbolos
- *     Detalle exacto en CLUSTER_PAYS_UNITS (mas abajo).
- *  4. SCATTER (SC): no forma agrupaciones. Se evalua UNICAMENTE en la
- *     cuadricula inicial: 3 -> 1x, 4 -> 3x, 5 -> 10x, 6+ -> 30x la apuesta.
- *  5. BOMBA MULTIPLICADORA (MX): no forma agrupaciones y NO se elimina.
- *     Cada bomba aterriza con un valor aleatorio de 2x..250x (sesgado a la
- *     parte baja de la tabla). Al terminar la secuencia de cascadas, la SUMA
- *     de las bombas presentes en la cuadricula final es el multiplicador de
- *     la ronda y se aplica al total ganado por agrupaciones + scatter.
+ *     Detalle exacto en CLUSTER_PAYS_UNITS (mas abajo; nombre historico).
+ *  4. SCATTER (SC): no participa en los pagos dispersos. Se evalua
+ *     UNICAMENTE en la cuadricula inicial: 3 -> 7,6x, 4 -> 22,7x,
+ *     5 -> 75,4x, 6+ -> 226x la apuesta (tabla exacta en SCATTER_PAYS_UNITS)
+ *     y NO se elimina durante las cascadas.
+ *  5. BOMBA MULTIPLICADORA (MX): no participa en los pagos dispersos y NO se
+ *     elimina. Cada bomba aterriza con un valor aleatorio de 2x..250x (sesgado
+ *     a la parte baja de la tabla). Al terminar la secuencia de cascadas, la
+ *     SUMA de las bombas presentes en la cuadricula final es el multiplicador
+ *     de la ronda y se aplica al total ganado por dispersiones + scatter.
  *     Sin bombas -> multiplicador = 1.
- *  6. CASCADAS (Tumbling): las celdas ganadoras se eliminan, los simbolos
- *     superiores caen por gravedad y se rellenan nuevas celdas desde arriba.
- *     El proceso se repite hasta que no haya nuevas agrupaciones.
+ *  6. CASCADAS (Tumbling): TODAS las celdas que forman cada combinacion
+ *     ganadora se eliminan, los simbolos superiores caen por gravedad y se
+ *     rellenan nuevas celdas desde arriba. El proceso se repite hasta que no
+ *     haya nuevas combinaciones (o se alcance el tope de pasos/exposicion).
  *  7. TOPE DE EXPOSICION (Max Exposure Cap): 10.000x la apuesta base por
  *     ronda. Si la ronda alcanza el tope, se corta el proceso y se marca
  *     "capped". Ninguna ronda puede pagar mas de 10.000x.
@@ -56,14 +59,16 @@ const crypto = require('node:crypto');
 
 const GAME_CODE = 'TROPICAL_GRID_6X5_95_10K';
 const GAME_NAME = 'Tropical Grid 6x5';
-const ENGINE_VERSION = '1.0.0';
-const PAYTABLE_VERSION = 'TG65-95-10K-v1';
+const ENGINE_VERSION = '1.1.0';
+const PAYTABLE_VERSION = 'TG65-95-10K-v2';
 
 const GRID_COLS = 6;
 const GRID_ROWS = 5;
 const GRID_CELLS = GRID_COLS * GRID_ROWS; // 30
 
-const MIN_CLUSTER_SIZE = 8;
+const MIN_GRID_PAY_SIZE = 8;
+/* Alias heredado: el minimo de pago es el mismo (8 apariciones). */
+const MIN_CLUSTER_SIZE = MIN_GRID_PAY_SIZE;
 const MAX_EXPOSURE_MULTIPLIER = 10000; // 10.000x
 const MAX_CASCADE_STEPS = 40;
 const MAX_FEATURE_SPINS = 10;
@@ -83,21 +88,25 @@ const REGULAR_SYMBOLS = Object.freeze([
 const BET_LADDER_CREDITS = Object.freeze([0.10, 0.20, 0.50, 1, 2, 5, 10, 20, 50, 100]);
 
 /* --------------------------------------------------------------------------
- *  1.1 TABLA DE PAGOS POR AGRUPACION  (en multiplos de la apuesta total)
- *      Clave = tamano minimo del tramo. Los tramos son EXACTAMENTE:
+ *  1.1 TABLA DE PAGOS POR DISPERSION  (en multiplos de la apuesta total)
+ *      Clave = cantidad minima del tramo. Los tramos son EXACTAMENTE:
  *      8-9 / 10-11 / 12+
+ *      El nombre CLUSTER_PAYS_UNITS se conserva por compatibilidad de API.
  * -------------------------------------------------------------------------- */
-const CLUSTER_PAYS_UNITS = Object.freeze({
-  S1: Object.freeze({ 8: 0.91, 10: 2.27, 12: 5.05 }),
-  S2: Object.freeze({ 8: 1.11, 10: 2.78, 12: 6.56 }),
-  S3: Object.freeze({ 8: 1.36, 10: 3.28, 12: 8.08 }),
-  S4: Object.freeze({ 8: 1.62, 10: 4.04, 12: 9.58 }),
-  S5: Object.freeze({ 8: 2.07, 10: 5.05, 12: 11.61 }),
-  S6: Object.freeze({ 8: 2.62, 10: 6.56, 12: 14.63 }),
-  S7: Object.freeze({ 8: 3.33, 10: 8.08, 12: 18.16 }),
-  S8: Object.freeze({ 8: 4.45, 10: 11.10, 12: 23.20 }),
-  S9: Object.freeze({ 8: 5.95, 10: 14.63, 12: 29.25 })
+const GRID_PAYS_UNITS = Object.freeze({
+  S1: Object.freeze({ 8: 0.0927, 10: 0.2313, 12: 0.5146 }),
+  S2: Object.freeze({ 8: 0.1131, 10: 0.2833, 12: 0.6685 }),
+  S3: Object.freeze({ 8: 0.1386, 10: 0.3342, 12: 0.8234 }),
+  S4: Object.freeze({ 8: 0.1651, 10: 0.4117, 12: 0.9762 }),
+  S5: Object.freeze({ 8: 0.2109, 10: 0.5146, 12: 1.1831 }),
+  S6: Object.freeze({ 8: 0.267, 10: 0.6685, 12: 1.4908 }),
+  S7: Object.freeze({ 8: 0.3393, 10: 0.8234, 12: 1.8505 }),
+  S8: Object.freeze({ 8: 0.4535, 10: 1.1311, 12: 2.3641 }),
+  S9: Object.freeze({ 8: 0.6063, 10: 1.4908, 12: 2.9806 })
 });
+
+/** Alias historico publicado por /api/game como `clusterPays`. */
+const CLUSTER_PAYS_UNITS = GRID_PAYS_UNITS;
 
 /** Pagos de scatter segun cantidad en la cuadricula inicial (multiplos). */
 const SCATTER_PAYS_UNITS = Object.freeze({
@@ -110,9 +119,10 @@ const SCATTER_PAYS_UNITS = Object.freeze({
 /* --------------------------------------------------------------------------
  *  1.2 TIRA VIRTUAL (REEL STRIP)
  *      Cada columna usa una tira fisica determinista de STRIP_LENGTH
- *      posiciones. Las rachas (runs) de 1 a 4 simbolos generan las
- *      agrupaciones verticales propias de un juego Cluster Pays y hacen que
- *      la tasa de acierto sea la de un slot real (~24% antes de cascadas).
+ *      posiciones. Las rachas (runs) de 1 a 4 simbolos siguen generando la
+ *      densidad vertical de un slot real. En esta variante el pago cuenta
+ *      apariciones dispersas, pero la tira se mantiene para conservar la
+ *      distribucion y la trazabilidad certificada.
  *      SCATTER y MULTIPLICADOR nunca se apilan (run = 1).
  *      Los pesos de SC/MX se expresan en "posiciones sueltas": al no
  *      multiplicarse por la racha media, su peso es mayor para conservar su
@@ -137,7 +147,7 @@ const BASE_WEIGHTS = Object.freeze({
   MX: 175
 });
 
-/** Pesos potenciados del modo TROPICAL FEVER (mas bombas, mismas agrupaciones). */
+/** Pesos potenciados del modo TROPICAL FEVER (mas bombas, mismos pagos dispersos). */
 const FEATURE_WEIGHTS = Object.freeze({
   S1: 1700,
   S2: 1550,
@@ -154,7 +164,7 @@ const FEATURE_WEIGHTS = Object.freeze({
 
 /* --------------------------------------------------------------------------
  *  1.3 TABLA DE VALORES DE BOMBA (2x..250x) - SESGADA AL RANGO BAJO
- *      Media base ~5,50x | Media feature ~14,65x
+ *      Media base ~5,50x | Media feature ~15,25x
  * -------------------------------------------------------------------------- */
 const BASE_MULTIPLIER_TABLE = Object.freeze({
   2: 2200,
@@ -180,13 +190,13 @@ const FEATURE_MULTIPLIER_TABLE = Object.freeze({
   5: 680,
   6: 730,
   8: 760,
-  10: 780,
-  12: 740,
-  15: 690,
-  20: 620,
-  25: 520,
-  50: 340,
-  100: 143,
+  11: 780,
+  13: 740,
+  16: 690,
+  21: 620,
+  26: 520,
+  52: 340,
+  104: 143,
   250: 37
 });
 
@@ -208,16 +218,16 @@ const FEATURE_CONFIG = Object.freeze({
  */
 const CERTIFIED_RTP = Object.freeze({
   target: 0.95,
-  base: 0.9492,
-  feature: 0.9497,
-  baseStandardError: 0.0021,
-  featureStandardError: 0.0033,
-  baseCi95: Object.freeze([0.9451, 0.9533]),
-  featureCi95: Object.freeze([0.9432, 0.9562]),
-  simulatedRoundsBase: 12000000,
-  simulatedRoundsFeature: 300000,
-  simulatedSpinsFeature: 3000000,
-  calibratedAt: '2026-10-21'
+  base: 0.9508,
+  feature: 0.9498,
+  baseStandardError: 0.0037,
+  featureStandardError: 0.0016,
+  baseCi95: Object.freeze([0.9434, 0.9581]),
+  featureCi95: Object.freeze([0.9466, 0.9530]),
+  simulatedRoundsBase: 1000000,
+  simulatedRoundsFeature: 500000,
+  simulatedSpinsFeature: 5000000,
+  calibratedAt: '2026-10-27'
 });
 
 /* ==========================================================================
@@ -241,7 +251,7 @@ function microToCents(micro, betCents) {
   return Math.floor((micro * betCents) / MICRO_PER_UNIT);
 }
 
-function mapClusterPays(paysUnits) {
+function mapGridPays(paysUnits) {
   const table = {};
   for (const symbol of Object.keys(paysUnits)) {
     table[symbol] = {};
@@ -261,13 +271,16 @@ function mapPays(paysUnits) {
   return Object.freeze(table);
 }
 
-/** Devuelve el tramo de pago (8 / 10 / 12) segun el tamano de la agrupacion. */
-function clusterTier(size) {
+/** Devuelve el tramo de pago (8 / 10 / 12) segun el conteo disperso. */
+function gridPayTier(size) {
   if (size >= 12) return 12;
   if (size >= 10) return 10;
-  if (size >= MIN_CLUSTER_SIZE) return 8;
+  if (size >= MIN_GRID_PAY_SIZE) return 8;
   return 0;
 }
+
+/** Alias heredado del calculo de tramos. */
+const clusterTier = gridPayTier;
 
 /**
  * Tramo de pago de scatter aplicable a `count` flores.
@@ -469,7 +482,7 @@ function pickMultiplier(picker, rng) {
 }
 
 /* ==========================================================================
- *  5. TIRAS FISICAS, GRAVEDAD Y DETECCION DE AGRUPACIONES
+ *  5. TIRAS FISICAS, GRAVEDAD Y DETECCION DE PAGOS DISPERSOS
  * ========================================================================== */
 
 /** Celda: { s: simbolo, v: valor de bomba (0 si no es bomba) }. */
@@ -617,56 +630,47 @@ function applyGravityAndRefill(grid, removedSet, reelState, rng, multiplierPicke
 }
 
 /**
- * Detecta todas las agrupaciones >= MIN_CLUSTER_SIZE mediante BFS ortogonal.
- * Orden determinista (fila, columna) para que la auditoria sea reproducible.
+ * Detecta los pagos por dispersion de una cuadricula.
+ *
+ * Cuenta TODAS las apariciones de cada simbolo regular (S1..S9) en las 30
+ * celdas, sin importar adyacencia ni conectividad. Si el conteo alcanza
+ * MIN_GRID_PAY_SIZE se paga el tramo correspondiente (8-9 / 10-11 / 12+) y se
+ * devuelven todas las celdas del simbolo para que la cascada las elimine.
  *
  * @param {Array<Array<{s:string,v:number}>>} grid
  * @param {Record<string, Record<number, number>>} paytable micro-unidades
  * @returns {Array<{symbol:string,size:number,cells:Array<[number,number]>,
  *                  tier:number,payMicro:number}>}
  */
-function findClusters(grid, paytable) {
-  const visited = Array.from({ length: GRID_ROWS }, () => new Array(GRID_COLS).fill(false));
-  const clusters = [];
+function findGridPays(grid, paytable) {
+  const bySymbol = new Map();
 
   for (let row = 0; row < GRID_ROWS; row += 1) {
     for (let col = 0; col < GRID_COLS; col += 1) {
-      if (visited[row][col]) continue;
-      const startCell = grid[row][col];
-      if (!startCell || !REGULAR_SYMBOLS.includes(startCell.s)) {
-        visited[row][col] = true;
-        continue;
+      const cell = grid[row][col];
+      if (!cell || !REGULAR_SYMBOLS.includes(cell.s)) continue;
+      let entry = bySymbol.get(cell.s);
+      if (!entry) {
+        entry = [];
+        bySymbol.set(cell.s, entry);
       }
-
-      const symbol = startCell.s;
-      const cells = [];
-      const queue = [[row, col]];
-      visited[row][col] = true;
-
-      while (queue.length > 0) {
-        const [r, c] = queue.pop();
-        cells.push([r, c]);
-        const neighbours = [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]];
-        for (const [nr, nc] of neighbours) {
-          if (nr < 0 || nr >= GRID_ROWS || nc < 0 || nc >= GRID_COLS) continue;
-          if (visited[nr][nc]) continue;
-          const next = grid[nr][nc];
-          if (!next || next.s !== symbol) continue;
-          visited[nr][nc] = true;
-          queue.push([nr, nc]);
-        }
-      }
-
-      if (cells.length >= MIN_CLUSTER_SIZE) {
-        cells.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]));
-        const tier = clusterTier(cells.length);
-        const payMicro = paytable[symbol] && paytable[symbol][tier] ? paytable[symbol][tier] : 0;
-        clusters.push({ symbol, size: cells.length, cells, tier, payMicro });
-      }
+      entry.push([row, col]);
     }
   }
 
-  return clusters;
+  const pays = [];
+  /* Orden normativo S1..S9 para que la auditoria sea determinista. */
+  for (const symbol of REGULAR_SYMBOLS) {
+    const cells = bySymbol.get(symbol);
+    if (!cells || cells.length < MIN_GRID_PAY_SIZE) continue;
+
+    const size = cells.length;
+    const tier = gridPayTier(size);
+    const payMicro = paytable[symbol] && paytable[symbol][tier] ? paytable[symbol][tier] : 0;
+    pays.push({ symbol, size, cells, tier, payMicro });
+  }
+
+  return pays;
 }
 
 /** Lista de bombas visibles con su valor. */
@@ -720,22 +724,22 @@ function playSpin({
     }
   }
   const scatterPayMicro = scatterPays[Math.min(scatterCells.length, scatterTopTier(scatterPays))] || 0;
-  let clusterWinMicro = 0;
+  let gridWinMicro = 0;
   const cascades = [];
   let capped = false;
 
   /* --- Bucle de cascadas --- */
   for (let stepIndex = 0; stepIndex < MAX_CASCADE_STEPS; stepIndex += 1) {
-    const clusters = findClusters(grid, paytable);
-    if (clusters.length === 0) break;
+    const gridPays = findGridPays(grid, paytable);
+    if (gridPays.length === 0) break;
 
-    const stepWinMicro = clusters.reduce((sum, cluster) => sum + cluster.payMicro, 0);
-    clusterWinMicro += stepWinMicro;
+    const stepWinMicro = gridPays.reduce((sum, pay) => sum + pay.payMicro, 0);
+    gridWinMicro += stepWinMicro;
 
     const removedCells = [];
     const removedSet = new Set();
-    for (const cluster of clusters) {
-      for (const [r, c] of cluster.cells) {
+    for (const pay of gridPays) {
+      for (const [r, c] of pay.cells) {
         removedCells.push([r, c]);
         removedSet.add(r * GRID_COLS + c);
       }
@@ -745,14 +749,15 @@ function playSpin({
       index: stepIndex,
       grid: toMatrix(grid),
       bombs: collectBombs(grid),
-      clusters: clusters.map((cluster) => ({
-        symbol: cluster.symbol,
-        size: cluster.size,
-        tier: cluster.tier,
-        payMicro: cluster.payMicro,
-        payUnits: Number((cluster.payMicro / MICRO_PER_UNIT).toFixed(4)),
-        payCredits: Number(((cluster.payMicro * betCents) / (MICRO_PER_UNIT * 100)).toFixed(2)),
-        cells: cluster.cells
+      payType: 'GRID_PAYS',
+      clusters: gridPays.map((pay) => ({
+        symbol: pay.symbol,
+        size: pay.size,
+        tier: pay.tier,
+        payMicro: pay.payMicro,
+        payUnits: Number((pay.payMicro / MICRO_PER_UNIT).toFixed(4)),
+        payCredits: Number(((pay.payMicro * betCents) / (MICRO_PER_UNIT * 100)).toFixed(2)),
+        cells: pay.cells
       })),
       removedCells,
       winMicro: stepWinMicro,
@@ -766,7 +771,7 @@ function playSpin({
     cascades.push(step);
 
     /* Corte por exposicion: el ganador base ya supera el tope de la ronda */
-    if (clusterWinMicro >= MAX_EXPOSURE_MICRO) {
+    if (gridWinMicro >= MAX_EXPOSURE_MICRO) {
       capped = true;
       break;
     }
@@ -779,7 +784,7 @@ function playSpin({
     ? bombs.reduce((sum, bomb) => sum + bomb.value, 0)
     : 1;
 
-  const baseWinMicro = clusterWinMicro + scatterPayMicro;
+  const baseWinMicro = gridWinMicro + scatterPayMicro;
 
   /* --- Conversion monetaria unica (redondeo hacia abajo al centimo) --- */
   let winCents;
@@ -809,7 +814,9 @@ function playSpin({
       payUnits: Number((scatterPayMicro / MICRO_PER_UNIT).toFixed(4)),
       payCents: microToCents(scatterPayMicro, betCents)
     },
-    clusterWinMicro,
+    /* Alias heredado del contrato anterior. */
+    clusterWinMicro: gridWinMicro,
+    gridWinMicro,
     baseWinMicro,
     baseWinUnits: Number((baseWinMicro / MICRO_PER_UNIT).toFixed(4)),
     multiplier,
@@ -879,7 +886,7 @@ function playRound(model, options = {}) {
       rng,
       pickers,
       strips: buyFeature ? model.feature.strips : model.base.strips,
-      paytable: model.clusterPaytableMicro,
+      paytable: model.gridPaytableMicro,
       scatterPays: model.scatterPaysMicro,
       betCents,
       winBudgetCents: remaining,
@@ -964,7 +971,9 @@ function playRound(model, options = {}) {
  * produccion usa SIEMPRE el modelo por defecto (createEngine() sin args).
  */
 function buildModel(overrides = {}) {
-  const clusterPaysUnits = overrides.clusterPaysUnits || CLUSTER_PAYS_UNITS;
+  const gridPaysUnits = overrides.gridPaysUnits
+    || overrides.clusterPaysUnits
+    || GRID_PAYS_UNITS;
   const scatterPaysUnits = overrides.scatterPaysUnits || SCATTER_PAYS_UNITS;
   const baseWeights = overrides.baseWeights || BASE_WEIGHTS;
   const featureWeights = overrides.featureWeights || FEATURE_WEIGHTS;
@@ -972,11 +981,15 @@ function buildModel(overrides = {}) {
   const featureMultiplierTable = overrides.featureMultiplierTable || FEATURE_MULTIPLIER_TABLE;
   const featureConfig = Object.assign({}, FEATURE_CONFIG, overrides.featureConfig || {});
 
+  const gridPaytableMicro = mapGridPays(gridPaysUnits);
   const model = {
     paytableVersion: overrides.paytableVersion || PAYTABLE_VERSION,
-    clusterPaysUnits,
+    gridPaysUnits,
+    /* Alias heredado del contrato anterior. */
+    clusterPaysUnits: gridPaysUnits,
     scatterPaysUnits,
-    clusterPaytableMicro: mapClusterPays(clusterPaysUnits),
+    gridPaytableMicro,
+    clusterPaytableMicro: gridPaytableMicro,
     scatterPaysMicro: mapPays(scatterPaysUnits),
     maxExposureMultiplier: overrides.maxExposureMultiplier || MAX_EXPOSURE_MULTIPLIER,
     base: {
@@ -1044,11 +1057,15 @@ function buildGameInfo(model) {
     engineVersion: ENGINE_VERSION,
     paytableVersion: model.paytableVersion,
     grid: { cols: GRID_COLS, rows: GRID_ROWS },
+    payMode: 'GRID_PAYS',
+    minGridPaySize: MIN_CLUSTER_SIZE,
+    /* Alias heredado: mismo valor que minGridPaySize. */
     minClusterSize: MIN_CLUSTER_SIZE,
     maxExposureMultiplier: model.maxExposureMultiplier,
     betLadder: BET_LADDER_CREDITS,
     certifiedRtp: CERTIFIED_RTP,
     clusterPays: model.clusterPaysUnits,
+    gridPays: model.clusterPaysUnits,
     scatterPays: model.scatterPaysUnits,
     strips: {
       length: STRIP_LENGTH,
@@ -1069,9 +1086,10 @@ function buildGameInfo(model) {
       spins: model.feature.spins
     },
     rules: [
-      `Cuadricula fija de ${GRID_COLS}x${GRID_ROWS} con pagos por agrupacion de ${MIN_CLUSTER_SIZE} o mas simbolos.`,
-      'Las agrupaciones se forman con simbolos iguales conectados en horizontal o vertical.',
-      'Los simbolos ganadores se eliminan y provocan cascadas hasta que no queden premios.',
+      `Cuadricula fija de ${GRID_COLS}x${GRID_ROWS} con pagos por dispersion de ${MIN_CLUSTER_SIZE} o mas simbolos iguales.`,
+      'Los simbolos se cuentan en cualquier posicion de la cuadricula; no hace falta que esten conectados ni adyacentes.',
+      'Todas las celdas de cada simbolo ganador se eliminan y provocan cascadas hasta que no queden premios.',
+      'El SCATTER y las bombas MX no se eliminan durante las cascadas; las bombas aplican su suma al final.',
       `El SCATTER paga solo en la tirada inicial: 3/4/5/6+ = ${model.scatterPaysUnits[3]}x/${model.scatterPaysUnits[4]}x/${model.scatterPaysUnits[5]}x/${model.scatterPaysUnits[6]}x.`,
       `Cada bomba vale entre ${multiplierMin}x y ${multiplierMax}x; al final de la ronda se suman y multiplican el premio.`,
       `La ganancia maxima por ronda esta limitada a ${model.maxExposureMultiplier.toLocaleString('es-ES')}x la apuesta base.`
@@ -1097,7 +1115,9 @@ function createEngine(overrides = {}) {
       buildStrip,
       createReelState,
       applyGravityAndRefill,
-      findClusters,
+      findGridPays,
+      /* Alias heredado para consumidores internos existentes. */
+      findClusters: findGridPays,
       collectBombs,
       toMatrix,
       playSpin: (params) =>
@@ -1105,7 +1125,7 @@ function createEngine(overrides = {}) {
           ...params,
           pickers: params.pickers || model.base.pickers,
           strips: params.strips || model.base.strips,
-          paytable: params.paytable || model.clusterPaytableMicro,
+          paytable: params.paytable || model.gridPaytableMicro,
           scatterPays: params.scatterPays || model.scatterPaysMicro
         })
     }
@@ -1143,11 +1163,13 @@ module.exports = {
   GRID_COLS,
   GRID_ROWS,
   GRID_CELLS,
+  MIN_GRID_PAY_SIZE,
   MIN_CLUSTER_SIZE,
   MAX_EXPOSURE_MULTIPLIER,
   MAX_CASCADE_STEPS,
   MAX_FEATURE_SPINS,
   BET_LADDER_CREDITS,
+  GRID_PAYS_UNITS,
   CLUSTER_PAYS_UNITS,
   SCATTER_PAYS_UNITS,
   BASE_WEIGHTS,
@@ -1162,6 +1184,7 @@ module.exports = {
   /* Helpers de validacion y utilidades */
   isValidBetCredits,
   creditsToCents,
+  gridPayTier,
   clusterTier
 };
 

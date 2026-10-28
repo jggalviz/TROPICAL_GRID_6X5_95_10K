@@ -12,12 +12,13 @@
  *  - Por defecto usa un PRNG rapido determinista SOLO para calibracion
  *    offline (no interviene en produccion).
  *  - Con --crypto usa el CSPRNG real del motor (mas lento, valida el flujo).
- *  - Mide RTP total, RTP por agrupaciones, factor multiplicador, tasa de
+ *  - Mide RTP total, RTP por pagos dispersos, factor multiplicador, tasa de
  *    acierto, ganancia maxima observada y % de rondas topadas al maximo.
  * ============================================================================
  */
 
 const engineModule = require('../server/engine/gridEngine');
+const { createFastRng } = require('./lib/fastRng');
 
 function parseArgs(argv) {
   const args = { rounds: 100000, mode: 'both', crypto: false, seed: 20240501, bet: 1, featureMx: 0 };
@@ -32,39 +33,6 @@ function parseArgs(argv) {
     else if (key === 'help') args.help = true;
   }
   return args;
-}
-
-/** sfc32: PRNG de calibracion (NO se usa en produccion). */
-function createFastRng(seed) {
-  let a = 0x9e3779b9;
-  let b = 0x243f6a88;
-  let c = 0xb7e15162;
-  let d = seed >>> 0;
-  let draws = 0;
-
-  function nextUint32() {
-    const t = (((a + b) >>> 0) + d) >>> 0;
-    d = (d + 1) >>> 0;
-    a = b ^ (b >>> 9);
-    b = (c + (c << 3)) >>> 0;
-    c = ((c << 21) | (c >>> 11)) >>> 0;
-    c = (c + t) >>> 0;
-    draws += 1;
-    return t;
-  }
-  for (let i = 0; i < 32; i += 1) nextUint32();
-
-  function int(maxExclusive) {
-    if (maxExclusive === 1) return 0;
-    const limit = Math.floor(0x100000000 / maxExclusive) * maxExclusive;
-    let value;
-    do {
-      value = nextUint32();
-    } while (value >= limit);
-    return value % maxExclusive;
-  }
-
-  return { int, float: () => int(0x100000000) / 0x100000000, draws: () => draws };
 }
 
 function quantile(sorted, q) {
@@ -93,7 +61,7 @@ function runSimulation({ rounds, mode, cryptoMode, seed, betCredits, featureMx =
   let multiplierSum = 0;
   let multiplierCount = 0;
   let bombRounds = 0;
-  let clusterWinMicroTotal = 0;
+  let gridWinMicroTotal = 0;
   let scatterWinMicroTotal = 0;
   let sumRatio = 0;
   let sumRatioSq = 0;
@@ -120,7 +88,7 @@ function runSimulation({ rounds, mode, cryptoMode, seed, betCredits, featureMx =
 
     for (const spin of result.spins) {
       baseWinMicroTotal += spin.baseWinMicro;
-      clusterWinMicroTotal += spin.clusterWinMicro;
+      gridWinMicroTotal += spin.gridWinMicro;
       scatterWinMicroTotal += spin.scatter.payMicro;
       if (spin.bombs && spin.bombs.length > 0) bombRounds += 1;
       if (spin.baseWinMicro > 0) {
@@ -171,7 +139,9 @@ function runSimulation({ rounds, mode, cryptoMode, seed, betCredits, featureMx =
     cappedRate: cappedRounds / rounds,
     maxWinX: maxWinCents / betCents,
     avgWinX: wonCents / betCents / rounds,
-    clusterRtpShare: wageredCents > 0 ? ((clusterWinMicroTotal * betCents) / 10000) / wageredCents : 0,
+    gridRtpShare: wageredCents > 0 ? ((gridWinMicroTotal * betCents) / 10000) / wageredCents : 0,
+    /* Alias heredado del informe anterior. */
+    clusterRtpShare: wageredCents > 0 ? ((gridWinMicroTotal * betCents) / 10000) / wageredCents : 0,
     scatterRtpShare: wageredCents > 0 ? ((scatterWinMicroTotal * betCents) / 10000) / wageredCents : 0,
     avgMultiplierWhenWin: multiplierCount > 0 ? multiplierSum / multiplierCount : 0,
     bombRoundRate: bombRounds / Math.max(1, totalSpins),
@@ -222,7 +192,7 @@ function printReport(report) {
   console.log(` Media ganada / ronda .....: ${report.avgWinX.toFixed(4)}x`);
   console.log(` Maximo observado .........: ${report.maxWinX.toFixed(2)}x`);
   console.log(` Rondas topadas ...........: ${pct(report.cappedRate)}`);
-  console.log(` RTP agrupaciones .........: ${pct(report.clusterRtpShare)}`);
+  console.log(` RTP pagos dispersos .....: ${pct(report.gridRtpShare)}`);
   console.log(` RTP scatter ..............: ${pct(report.scatterRtpShare)}`);
   console.log(` Base win medio (unidades).: ${report.avgBaseWinUnits.toFixed(4)}x`);
   console.log(` Multiplicador medio (win).: ${report.avgMultiplierWhenWin.toFixed(3)}`);

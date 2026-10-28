@@ -35,7 +35,7 @@ test('GET /api/health responde UP sin exponer secretos', async () => {
   assert.equal(response.body.ok, true);
   assert.equal(response.body.status, 'UP');
   assert.equal(response.body.dbDriver, 'memory');
-  assert.equal(response.body.engineVersion, '1.0.0');
+  assert.equal(response.body.engineVersion, '1.1.0');
   assert.equal(response.text.includes(process.env.SESSION_SECRET), false);
 });
 
@@ -47,11 +47,13 @@ test('GET /api/game publica la paytable y el RTP certificado', async () => {
   assert.equal(game.code, 'TROPICAL_GRID_6X5_95_10K');
   assert.equal(game.grid.cols, 6);
   assert.equal(game.grid.rows, 5);
+  assert.equal(game.payMode, 'GRID_PAYS');
+  assert.equal(game.minGridPaySize, 8);
   assert.equal(game.minClusterSize, 8);
   assert.equal(game.maxExposureMultiplier, 10000);
   assert.deepEqual(game.betLadder, [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]);
-  assert.equal(game.certifiedRtp.base, 0.9492);
-  assert.equal(game.certifiedRtp.feature, 0.9497);
+  assert.equal(game.certifiedRtp.base, 0.9508);
+  assert.equal(game.certifiedRtp.feature, 0.9498);
   assert.equal(Object.keys(game.clusterPays).length, 9);
   assert.equal(response.text.includes('serverSeed'), false);
 });
@@ -136,7 +138,7 @@ test('POST /api/spin resuelve una ronda y actualiza el saldo', async () => {
   /* Auditoria: semilla de servidor de 64 hex; el secreto HMAC nunca viaja. */
   assert.match(body.audit.serverSeed, /^[0-9a-f]{64}$/);
   assert.match(body.audit.serverSeedHash, /^[0-9a-f]{64}$/);
-  assert.equal(body.audit.certifiedRtp, 0.9492);
+  assert.equal(body.audit.certifiedRtp, 0.9508);
   assert.ok(body.audit.rngDraws > 0);
 });
 

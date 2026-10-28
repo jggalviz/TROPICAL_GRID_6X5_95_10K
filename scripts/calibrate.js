@@ -5,8 +5,8 @@
  *  HERRAMIENTA DE CALIBRACION DE TIRAS (OFFLINE)
  * ============================================================================
  *  Mide, para distintos vectores de pesos, la composicion real de las tiras
- *  fisicas, la probabilidad de que una tirada inicial contenga al menos una
- *  agrupacion >= 8 y el valor medio pagado. Sirve para disenar las tiras y
+ *  fisicas, la probabilidad de que una tirada inicial contenga al menos un
+ *  pago disperso >= 8 y el valor medio pagado. Sirve para disenar las tiras y
  *  la tabla de pagos antes de certificar el RTP.
  *
  *  Uso: node scripts/calibrate.js [--grids=200000]
@@ -80,30 +80,30 @@ function analyse(label, weights) {
   const engine = createEngine({ baseWeights: weights });
   const internals = engine.internals;
   const model = engine.model;
-  const paytable = model.clusterPaytableMicro;
+  const paytable = model.gridPaytableMicro;
   const rng = createFastRng(1234567);
   const gridCount = GRIDS;
 
-  let gridsWithCluster = 0;
-  let totalClusters = 0;
+  let gridsWithPay = 0;
+  let totalPays = 0;
   let totalPayMicro = 0;
-  let bigClusters = 0;
+  let bigPays = 0;
   let scatters = 0;
   let bombs = 0;
   const bySymbol = {};
 
   for (let i = 0; i < gridCount; i += 1) {
     const { grid } = internals.createReelState(rng, model.base.strips, model.base.pickers.multipliers);
-    const clusters = internals.findClusters(grid, paytable);
-    if (clusters.length > 0) gridsWithCluster += 1;
-    totalClusters += clusters.length;
-    for (const cluster of clusters) {
-      totalPayMicro += cluster.payMicro;
-      if (cluster.size >= 12) bigClusters += 1;
-      const entry = bySymbol[cluster.symbol] || (bySymbol[cluster.symbol] = { count: 0, pay: 0, max: 0 });
+    const pays = internals.findGridPays(grid, paytable);
+    if (pays.length > 0) gridsWithPay += 1;
+    totalPays += pays.length;
+    for (const pay of pays) {
+      totalPayMicro += pay.payMicro;
+      if (pay.size >= 12) bigPays += 1;
+      const entry = bySymbol[pay.symbol] || (bySymbol[pay.symbol] = { count: 0, pay: 0, max: 0 });
       entry.count += 1;
-      entry.pay += cluster.payMicro;
-      entry.max = Math.max(entry.max, cluster.size);
+      entry.pay += pay.payMicro;
+      entry.max = Math.max(entry.max, pay.size);
     }
     for (const row of grid) {
       for (const cell of row) {
@@ -127,9 +127,9 @@ function analyse(label, weights) {
   console.log(`### ${label}`);
   console.log(`  Peso total .................: ${Object.values(weights).reduce((a, b) => a + b, 0)}`);
   console.log(`  Tira SC / MX ...............: ${((stripSc / stripPositions) * 100).toFixed(3)}% / ${((stripMx / stripPositions) * 100).toFixed(3)}%`);
-  console.log(`  P(>=1 agrupacion inicial) ..: ${((gridsWithCluster / gridCount) * 100).toFixed(2)}%`);
-  console.log(`  Agrupaciones por cuadricula : ${(totalClusters / gridCount).toFixed(3)}`);
-  console.log(`  Agrupaciones >=12 celdas ...: ${((bigClusters / gridCount) * 100).toFixed(3)}%`);
+  console.log(`  P(>=1 pago disperso inicial) : ${((gridsWithPay / gridCount) * 100).toFixed(2)}%`);
+  console.log(`  Pagos dispersos/cuadricula .: ${(totalPays / gridCount).toFixed(3)}`);
+  console.log(`  Pagos con conteo >=12 ......: ${((bigPays / gridCount) * 100).toFixed(3)}%`);
   console.log(`  Pago medio inicial .........: ${avgPayUnits.toFixed(4)}x apuesta`);
   console.log(`  Scatter por celda ..........: ${((scatters / cells) * 100).toFixed(3)}%`);
   console.log(`  Bomba por celda ............: ${((bombs / cells) * 100).toFixed(3)}%`);
@@ -139,7 +139,7 @@ function analyse(label, weights) {
     return `${symbol}:${(entry.count / gridCount * 100).toFixed(1)}%/max${entry.max}`;
   }).join('  ');
   console.log(`  Reparto ....................: ${distribution}`);
-  return { label, hitRate: gridsWithCluster / gridCount, avgPayUnits };
+  return { label, hitRate: gridsWithPay / gridCount, avgPayUnits };
 }
 
 function main() {

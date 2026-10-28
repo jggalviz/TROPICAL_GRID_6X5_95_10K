@@ -7,13 +7,13 @@ en vivo en `GET /api/game` (fuente única: las constantes del motor).
 | Campo | Valor |
 | --- | --- |
 | Código de juego | `TROPICAL_GRID_6X5_95_10K` |
-| Versión de motor | `ENGINE_VERSION` (`1.0.0`) |
-| Versión de paytable | `TG65-95-10K-v1` |
+| Versión de motor | `ENGINE_VERSION` (`1.1.0`) |
+| Versión de paytable | `TG65-95-10K-v2` |
 | Rejilla | 6 columnas × 5 filas (30 celdas) |
-| Tipo | Cluster Pays (pagos por agrupación) |
-| Agrupación mínima | 8 símbolos conectados en ortogonal |
+| Tipo | Grid Pays (pagos por dispersión) |
+| Mínimo de pago | 8 símbolos iguales en cualquier posición |
 | RTP objetivo | 95,00 % |
-| RTP certificado | base 94,92 % · bonus 94,97 % |
+| RTP certificado | base 95,08 % · bonus 94,98 % |
 | Tope de exposición | 10.000× la apuesta de la ronda |
 | Cascadas máximas por tirada | 40 pasos (`MAX_CASCADE_STEPS`) |
 | Giros por bonus | 10 (`MAX_FEATURE_SPINS`) |
@@ -36,7 +36,7 @@ El motor **nunca** opera con números en coma flotante para dinero:
 microToCents(micro, betCents) = Math.floor(micro * betCents / MICRO_PER_UNIT)
 ```
 
-Una agrupación de 3,33 unidades sobre una apuesta de 1,00 crédito paga 3,33
+Una combinación de 3,33 unidades sobre una apuesta de 1,00 crédito paga 3,33
 créditos (333 céntimos). No hay redondeos intermedios: el total de la ronda se
 calcula en micro-unidades y se convierte una sola vez.
 
@@ -63,7 +63,7 @@ Cada una de las 6 columnas usa una tira **física** determinista de
 Las rachas (runs) son 1, 1, 2, 2, 3, 3, 4 posiciones: los símbolos regulares
 pueden ocupar rachas de hasta 4 celdas, mientras que `SC` (flor) y `MX`
 (bomba) siempre ocupan una sola posición. Esto produce la densidad vertical de
-un slot real y una tasa de acierto final de ~15,6 % en el modo base (§10).
+un slot real y una tasa de acierto final de ~61,8 % en el modo base (§10).
 
 Distribución publicada de la tira base (`gameInfo.strips.symbolDistribution`),
 medida sobre la tira ya construida con rachas:
@@ -88,12 +88,13 @@ tira base de esta versión): permite al auditor comprobar que el despliegue
 sirve exactamente las tiras certificadas.
 
 
-## 4. Agrupaciones (cluster pays)
+## 4. Pagos por dispersión (Grid Pays)
 
-Se buscan componentes conexas por vecindad ortogonal (4 direcciones) del mismo
-símbolo regular. Solo pagan las de tamaño ≥ 8 y el pago se toma del tramo:
+Se cuenta **todas** las apariciones de cada símbolo regular (`S1`…`S9`) en las
+30 celdas. No importa que estén conectados ni adyacentes: solo cuenta el total.
+Si un símbolo alcanza el mínimo, paga una vez el tramo correspondiente:
 
-| Tramo | Tamaño |
+| Tramo | Cantidad total en la rejilla |
 | --- | --- |
 | 8 | 8 y 9 |
 | 10 | 10 y 11 |
@@ -101,20 +102,21 @@ símbolo regular. Solo pagan las de tamaño ≥ 8 y el pago se toma del tramo:
 
 Tabla de pagos en unidades (× la apuesta de la ronda):
 
-| Símbolo | 8 | 10 | 12+ |
+| Símbolo | 8-9 | 10-11 | 12+ |
 | --- | --- | --- | --- |
-| S1 | 0,91 | 2,27 | 5,05 |
-| S2 | 1,11 | 2,78 | 6,56 |
-| S3 | 1,36 | 3,28 | 8,08 |
-| S4 | 1,62 | 4,04 | 9,58 |
-| S5 | 2,07 | 5,05 | 11,61 |
-| S6 | 2,62 | 6,56 | 14,63 |
-| S7 | 3,33 | 8,08 | 18,16 |
-| S8 | 4,45 | 11,10 | 23,20 |
-| S9 | 5,95 | 14,63 | 29,25 |
+| S1 | 0,0927 | 0,2313 | 0,5146 |
+| S2 | 0,1131 | 0,2833 | 0,6685 |
+| S3 | 0,1386 | 0,3342 | 0,8234 |
+| S4 | 0,1651 | 0,4117 | 0,9762 |
+| S5 | 0,2109 | 0,5146 | 1,1831 |
+| S6 | 0,2670 | 0,6685 | 1,4908 |
+| S7 | 0,3393 | 0,8234 | 1,8505 |
+| S8 | 0,4535 | 1,1311 | 2,3641 |
+| S9 | 0,6063 | 1,4908 | 2,9806 |
 
-Si en un mismo paso hay varias agrupaciones, sus pagos se **suman**. `SC` y
-`MX` no forman agrupaciones: son símbolos especiales.
+Si en un mismo paso hay varios símbolos que alcanzan el mínimo, sus pagos se
+**suman** y todas sus celdas se eliminan. `SC` y `MX` no participan en estos
+pagos: son símbolos especiales.
 
 ## 5. Scatter (flor)
 
@@ -131,12 +133,14 @@ pagan el tramo máximo.
 
 ## 6. Cascadas
 
-1. Tras pagar las agrupaciones, sus celdas se eliminan.
+1. Tras pagar las combinaciones dispersas, se eliminan **todas** las celdas de
+   cada símbolo ganador (no solo un subconjunto conectado).
 2. Los símbolos restantes caen por gravedad y se rellenan las celdas vacías
    desde arriba con nuevas posiciones de la tira.
-3. Se vuelve a evaluar. El bucle se corta cuando no hay agrupaciones, tras
-   `MAX_CASCADE_STEPS = 40` pasos o cuando la ganancia base ya supera el tope
-   de exposición (corte anticipado para acotar el peor caso).
+3. Se vuelve a contar cada símbolo en la nueva rejilla. El bucle se corta cuando
+   ningún símbolo alcanza 8 apariciones, tras `MAX_CASCADE_STEPS = 40` pasos o
+   cuando la ganancia base ya supera el tope de exposición.
+4. `SC` y `MX` nunca se eliminan: permanecen en la rejilla y caen con el resto.
 
 Todas las cascadas de una tirada comparten el mismo flujo RNG. El importe de
 la tirada es la suma de los pasos más el scatter, multiplicado al final.
@@ -145,8 +149,8 @@ la tirada es la suma de los pasos más el scatter, multiplicado al final.
 
 `MX` no paga por sí misma: deja una bomba en la celda con un valor fijo de la
 tabla. **Al final de la tirada** se suman las bombas presentes en la rejilla
-final y ese total multiplica la ganancia acumulada de la tirada (agrupaciones +
-scatter). Si no hay bombas, el multiplicador es 1.
+final y ese total multiplica la ganancia acumulada de la tirada (pagos
+dispersos + scatter). Si no hay bombas, el multiplicador es 1.
 
 Distribución de valores (base) publicada en `gameInfo.multiplier.distribution`:
 
@@ -168,21 +172,23 @@ Distribución de valores (base) publicada en `gameInfo.multiplier.distribution`:
 | 250× | 3 | 0,03 % |
 
 Rango efectivo: 2× – 250×. En el modo bonus se usa una tabla propia con los
-mismos valores pero mucho más peso en los tramos altos (media ~14,65× frente a
-~5,50× del modo base).
+mismos pesos, pero valores de bomba ligeramente superiores (2·3·4·5·6·8·11·13·
+16·21·26·52·104·250) para compensar la mayor frecuencia de premios; su media es
+~15,25× frente a ~5,50× del modo base.
 
 ## 8. Tropical Fever (compra de bonus)
 
 * Coste: `feature.costMultiplier = 100` × la apuesta de la ronda.
 * Duración: 10 giros gratuitos (`feature.spins = 10`).
-* Rejilla y paytable de agrupaciones idénticas al modo base.
+* Rejilla y tabla de pagos dispersos idénticas al modo base.
 * Diferencia matemática: los pesos de la tira dan mucho más peso a `MX`
   (1040 frente a 175), de modo que cada giro acumula varias bombas y el
-  multiplicador medio de los giros con premio es ~22×.
+  multiplicador medio de los giros con pago base es ~28×. Además, la tabla de
+  valores de bomba del bonus es ~4,1 % superior a la del modo base.
 * El multiplicador se aplica **por giro** (al final de cada tirada del bonus),
   no al total del bonus.
 * La compra se contabiliza como una ronda con apuesta = coste del bonus, por lo
-  que su RTP se mide sobre ese importe (94,97 %).
+  que su RTP se mide sobre ese importe (94,98 %).
 
 ## 9. Tope de exposición
 
@@ -193,10 +199,9 @@ mismos valores pero mucho más peso en los tramos altos (media ~14,65× frente a
 2. Al convertir: `winCents = min(betCents × 10 000, presupuesto de la ronda)`.
 
 El límite se aplica a la ronda completa, así que un bonus puede tocar techo
-sumando sus 10 giros. El tope actúa como red de seguridad del peor caso: en las
-simulaciones de calibración ninguna ronda lo alcanzó (0,0000 % de rondas
-topadas), y el ligero margen del 94,92 % frente al objetivo del 95,00 % se fija
-en la calibración de pesos para dejar holgura bajo el tope.
+sumando sus 10 giros. El tope actúa como red de seguridad: en la certificación
+de 1.000.000 de rondas base y 500.000 compras de bonus no se alcanzó en ninguna
+ronda (0,0000 % de rondas topadas).
 
 ## 10. RTP certificado
 
@@ -205,21 +210,26 @@ caliente; solo se actualizan al recalibrar):
 
 | Modo | RTP | Error estándar | IC 95 % | Rondas simuladas |
 | --- | --- | --- | --- | --- |
-| Base | 94,92 % | 0,21 % | 94,51 % – 95,33 % | 12.000.000 |
-| Tropical Fever | 94,97 % | 0,33 % | 94,32 % – 95,62 % | 300.000 (3.000.000 giros) |
+| Base | 95,08 % | 0,37 % | 94,34 % – 95,81 % | 1.000.000 |
+| Tropical Fever | 94,98 % | 0,16 % | 94,66 % – 95,30 % | 500.000 (5.000.000 giros) |
 
-Fecha de calibración: `2026-10-21`.
+Fecha de calibración: `2026-10-27`.
 
-Comprobación de referencia con 60.000 rondas por modo (PRNG de calibración):
+Estadísticos de la misma certificación:
 
-| Modo | RTP medido | Error estándar | Acierto | RTP por agrupaciones | RTP por scatter |
-| --- | --- | --- | --- | --- | --- |
-| Base | 94,41 % | 2,44 % | 15,57 % | 43,90 % | 0,66 % |
-| Bonus | 95,24 % | 0,74 % | 81,26 % | 3,61 % | 0,92 % |
+| Métrica | Base | Tropical Fever |
+| --- | --- | --- |
+| Acierto por ronda | 61,80 % | 99,98 % |
+| Acierto por tirada interna | 61,80 % | 56,97 % |
+| Desviación estándar del retorno | 3,7407× | 1,1469× |
+| Cascadas medias por tirada | 1,156 | 0,966 |
+| Multiplicador medio con pago base | 2,432× | 27,993× |
+| Rondas topadas | 0,0000 % | 0,0000 % |
 
 La varianza del modo base exige muestras grandes: el 90 % de las rondas paga
-menos de 1,62× y el 99 % menos de 16,68×, pero las rondas con bombas altas
-mueven la media. Para certificación se usan ≥ 10 millones de rondas.
+menos de 2,00× y el 99 % menos de 12,31×, pero las rondas con bombas altas
+mueven la media. Para certificación se recomienda ≥ 1.000.000 de rondas base y
+≥ 500.000 compras de bonus, preferiblemente repartidas en varias semillas.
 
 ## 11. Metodología de simulación
 
@@ -237,7 +247,7 @@ node scripts/simulate.js --rounds=50000 --mode=feature --seed=7 --bet=5
 ```
 
 Cada ejecución imprime RTP, error estándar, IC 95 %, tasa de acierto,
-porcentaje de rondas topadas, RTP desglosado (agrupaciones / scatter), media de
+porcentaje de rondas topadas, RTP desglosado (pagos dispersos / scatter), media de
 unidades ganadas, multiplicador medio en rondas ganadoras, percentiles y
 distribución de premios por tramos. El resultado completo se guarda en
 `.sim/simulation-<timestamp>.json` como evidencia reproducible.
@@ -247,6 +257,63 @@ distribución de premios por tramos. El resultado completo se guarda en
   producción.
 * Las semillas de simulación son fijas por `--seed`, de modo que dos auditorías
   con la misma versión obtienen exactamente el mismo resultado.
+
+### 11.1 Reporte Monte Carlo con distribución de premios
+
+`scripts/monteCarlo.js` es el informe específico de RTP, volatilidad, hit rate
+y tramos de premio. No duplica las reglas: ejecuta `engine.playRound()` y agrega
+los resultados, por lo que cualquier cambio futuro en rodillos, pagos dispersos,
+cascadas, bombas o topes se refleja automáticamente.
+
+```bash
+# 100.000 rondas base (por defecto), semilla reproducible
+npm run montecarlo
+
+# 1.000.000 de rondas base (evidencia de mayor tamaño)
+npm run montecarlo:1m
+
+# Compra de bonus: 100.000 compras = 1.000.000 de giros internos
+npm run montecarlo:feature
+
+# Ambos modos y semilla manual
+node scripts/monteCarlo.js --rounds=1000000 --mode=both --seed=20261026 --bet=1
+```
+
+El reporte imprime:
+
+* **RTP empírico** = total pagado / total apostado × 100, con IC 95 % y error
+  estándar. En modo feature el importe apostado es la compra de 100× apuesta
+  base (10 giros gratis).
+* **Hit rate** por ronda (pago > 0), hit con beneficio (pago > apuesta) y hit
+  rate por tirada interna (útil en feature, donde una compra contiene 10
+  tiradas).
+* **Volatilidad**: σ del retorno por ronda, σ del premio, coeficiente de
+  variación, percentiles (p50, p75, p90, p95, p99, p99.9) y máximo observado.
+* **Distribución de premios**, con número de casos, porcentaje de rondas, pago
+  total, porcentaje del pago y aporte a RTP. Los tramos se expresan en
+  múltiplos de la apuesta base: sin premio (`0`), micro (`0 < pago < 1x`),
+  pequeño (`1x–<5x`), mediano (`5x–<25x`), grande (`25x–<100x`), muy grande
+  (`100x–<umbral`) y jackpot (`≥umbral`). El umbral por defecto es `1000x`
+  y se cambia con `--jackpot=250`, por ejemplo.
+* **Diagnóstico**: cascadas medias, tiradas con bomba, tiradas con 3+ SC
+  (scatter pagado) y multiplicador medio en tiradas con pago base.
+* **Controles de consistencia**: suma de tramos = rondas, suma de pagos = total,
+  apuestas contabilizadas y máximo dentro del tope de exposición.
+
+Precisión y reproducibilidad:
+
+* El dinero se acumula en céntimos enteros con `BigInt`; los porcentajes se
+  calculan con división entera escalada. Los `float` solo se usan para
+  estadísticos (σ, percentiles, IC), nunca para importes.
+* El PRNG por defecto es `sfc32` determinista y offline. `--crypto` usa el
+  HMAC-DRBG real del motor para validar el flujo de producción (más lento).
+* La evidencia completa se guarda en `.sim/montecarlo-<timestamp>.json`
+  (`--no-save` lo desactiva, `--json=RUTA` cambia el destino).
+* 100.000 rondas son una muestra de diagnóstico, no una certificación: el IC
+  del RTP sigue siendo ancho por la volatilidad del juego. Para verificar el
+  RTP publicado se usan muestras grandes (≥1.000.000 de rondas) y se comprueba
+  que el RTP certificado cae dentro del IC observado; la certificación actual se
+  hizo con 1.000.000 de rondas base y 500.000 compras de bonus (5.000.000 giros).
 
 
 ## 12. Verificación de una ronda
@@ -279,7 +346,7 @@ bombas y el mismo importe. Es la prueba que debe ejecutar el laboratorio.
 
 ## 13. Cobertura de la suite de pruebas
 
-`npm test` (43 casos, `node --test`) cubre:
+`npm test` (suite completa con `node --test`) cubre:
 
 **API y contrato**
 
@@ -295,6 +362,15 @@ bombas y el mismo importe. Es la prueba que debe ejecutar el laboratorio.
 
 **Motor**
 
+* Pagos por dispersión: 8 símbolos aislados (sin adyacencia) pagan el tramo 8-9;
+  7 no pagan; dos símbolos pueden pagar simultáneamente.
+* Cascadas: se eliminan **todas** las celdas del símbolo ganador, se aplica
+  gravedad/refill y se vuelve a contar; una segunda combinación encadena otro
+  pago, el bucle termina cuando ningún símbolo alcanza 8 y se respeta el tope
+  de 40 pasos.
+* `SC` sobrevive a las cascadas y solo se evalúa en la rejilla inicial; su pago
+  se suma al de los pagos dispersos. `MX` también sobrevive y la suma de bombas
+  se aplica al final, después de la última cascada.
 * El tramo `6+` de scatter es abierto y paga el máximo de la tabla (regresión de
   §5); con menos de 3 flores no hay pago.
 
@@ -336,11 +412,12 @@ reproducción de rondas descrita en §12, no con pruebas unitarias.
 ## 15. Cambios que exigen recalibración y recertificación
 
 * Tablas de pesos (`BASE_WEIGHTS`, `FEATURE_WEIGHTS`).
-* Paytable de agrupaciones (`CLUSTER_PAYS_UNITS`) o de scatter
-  (`SCATTER_PAYS_UNITS`), incluido el tramo abierto 6+.
+* Paytable de pagos dispersos (`GRID_PAYS_UNITS`, alias `CLUSTER_PAYS_UNITS`) o
+  de scatter (`SCATTER_PAYS_UNITS`), incluido el tramo abierto 6+.
 * Tablas de bombas (`BASE_MULTIPLIER_TABLE`, `FEATURE_MULTIPLIER_TABLE`).
 * Parámetros de Tropical Fever (coste, número de giros).
-* `MAX_EXPOSURE_MULTIPLIER`, `MAX_CASCADE_STEPS`, `MIN_CLUSTER_SIZE`.
+* `MAX_EXPOSURE_MULTIPLIER`, `MAX_CASCADE_STEPS`, `MIN_GRID_PAY_SIZE`
+  (alias `MIN_CLUSTER_SIZE`).
 * Algoritmo RNG, `STRIP_LENGTH`, `STRIP_RUN_LENGTHS` o `STRIP_SEED`.
 
 Tras cualquier cambio hay que volver a simular, actualizar `CERTIFIED_RTP` y

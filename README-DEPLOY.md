@@ -24,7 +24,7 @@
 
 ### 1.1 Qué es PANA CRUSH
 
-PANA CRUSH es un **slot de agrupaciones (cluster pays) 6×5**, con **RTP 95 %** y **ganancia máxima de 10.000×**. La decisión de cada ronda, la selección de símbolos, los multiplicadores, el saldo y la idempotencia se calculan **en el servidor**; el navegador solo presenta la información y envía la intención de giro.
+PANA CRUSH es un **slot de pagos por dispersión (grid pays) 6×5**, con **RTP 95 %** y **ganancia máxima de 10.000×**. La decisión de cada ronda, la selección de símbolos, los multiplicadores, el saldo y la idempotencia se calculan **en el servidor**; el navegador solo presenta la información y envía la intención de giro.
 
 El frontend es una **SPA estática** construida en HTML, CSS y JavaScript puro (módulos ES), sin framework, sin bundler y sin paso de transpilación. La capa visual busca una presentación tipo **AAA** (arte WebP, animaciones y efectos) manteniendo un artefacto estático y sin dependencias de framework. El motor gráfico y los assets están optimizados para ejecutarse directamente en el navegador: arte principal en **WebP**, tipografías **WOFF2** y símbolos en PNG con alfa.
 

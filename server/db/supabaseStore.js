@@ -23,7 +23,7 @@ function getClient() {
     auth: { persistSession: false, autoRefreshToken: false },
     db: { schema: config.db.schema },
     global: {
-      headers: { 'X-Client-Info': 'tropical-grid-server/1.0.0' }
+      headers: { 'X-Client-Info': 'tropical-grid-server/1.1.0' }
     }
   });
   return client;
